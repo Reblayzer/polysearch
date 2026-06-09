@@ -96,6 +96,26 @@ narrow keeps the translators honest and the leak surface small.
 - **CLI-only for v1.** The comparison output is text designed to be readable and pasteable. A
   web UI is explicitly deferred.
 
+## Elasticsearch and OpenSearch share a translator
+
+OpenSearch is a fork of Elasticsearch 7.10, so for the primitives polysearch supports the query
+DSL is identical. The OpenSearch translator (`src/query/opensearch.ts`) therefore re-exports the
+Elasticsearch translator rather than duplicating it; a unit test pins that the two produce the
+same body. The real differences are in the client transport, and they live entirely in the
+OpenSearch adapter:
+
+- requests nest their payload under `body` (the older 7.x client style), and responses wrap
+  theirs under `response.body`;
+- the two official clients ship separate generated TypeScript type universes, so the shared
+  translator's output is cast to the OpenSearch body types at the call boundary (the request
+  JSON is identical at runtime);
+- the OpenSearch client's generated search-hit type is malformed in the pinned version, so the
+  adapter reads hits through a small, correct local shape.
+
+This is the clearest demonstration of why the interface earns its keep: two engines that are
+nearly identical at the query level still differ enough at the client level that a caller should
+not have to care.
+
 ## Where the abstraction will leak
 
 A thin abstraction over three genuinely different engines cannot be perfect, and pretending

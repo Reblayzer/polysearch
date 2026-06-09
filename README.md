@@ -8,9 +8,9 @@ unified Query DSL that compiles to each engine's native query, and a comparison 
 the same query across all three engines and reports the scoring and result-set differences.
 
 > **Status: in active development.** The interface, the unified Query DSL and the
-> **Elasticsearch adapter** (with integration tests) are in place. The OpenSearch and Solr
-> adapters, the comparison mode and the CLI are landing incrementally (see
-> [Roadmap](#roadmap)). The `main` branch is kept green.
+> **Elasticsearch and OpenSearch adapters** (with integration tests) are in place. The Solr
+> adapter, the comparison mode and the CLI are landing incrementally (see [Roadmap](#roadmap)).
+> The `main` branch is kept green.
 
 ## Why
 
@@ -83,13 +83,15 @@ language. See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full design
 
 ## Quickstart
 
-> The Elasticsearch adapter works today; the OpenSearch and Solr adapters are not wired up
-> yet, so the cross-engine `compare` command is not runnable end to end. This shows the
-> intended CLI shape.
+> The Elasticsearch and OpenSearch adapters work today; the Solr adapter is not wired up yet,
+> so the cross-engine `compare` command is not runnable across all three end to end. This shows
+> the intended CLI shape.
 
 ```bash
-# Spin up the engines locally
-docker compose up -d
+# Spin up the engines locally (each engine has its own profile; `all` starts
+# every engine, which is RAM-hungry). Examples:
+docker compose --profile es up -d     # Elasticsearch only
+docker compose --profile all up -d    # all engines
 
 # Index a product corpus, search one engine, compare all three
 polysearch index   --engine es   --index products --file products.ndjson
@@ -112,7 +114,7 @@ npm run build       # tsup -> dist/
 Integration tests run against local containers and are gated behind an env var:
 
 ```bash
-docker compose up -d
+docker compose --profile all up -d
 npm run test:integration   # RUN_INTEGRATION=1 vitest run
 ```
 
@@ -120,7 +122,7 @@ npm run test:integration   # RUN_INTEGRATION=1 vitest run
 
 - [x] `SearchEngine` interface and unified Query DSL
 - [x] Elasticsearch adapter + query translator (with integration tests)
-- [ ] OpenSearch adapter (with a note on where its API diverges from Elasticsearch)
+- [x] OpenSearch adapter (shared query DSL; diverges only in client transport)
 - [ ] Solr adapter (the most divergent query language)
 - [ ] `compare` mode: top-K overlap, score deltas, human-readable summary
 - [ ] CLI: `index`, `search`, `compare`, `explain`

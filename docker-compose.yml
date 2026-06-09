@@ -25,3 +25,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+
+  opensearch:
+    image: opensearchproject/opensearch:2.15.0
+    container_name: polysearch-os
+    profiles: ['os', 'all']
+    environment:
+      - discovery.type=single-node
+      # Dev only: turn off the security plugin so there is no TLS/auth locally.
+      - DISABLE_SECURITY_PLUGIN=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    # OpenSearch listens on 9200 inside the container; expose it on 9201 so it
+    # can run alongside Elasticsearch.
+    ports:
+      - '9201:9200'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:9200/_cluster/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12

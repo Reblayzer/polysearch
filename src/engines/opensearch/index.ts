@@ -1,0 +1,202 @@
+/**
+ * OpenSearch adapter: the second concrete `SearchEngine`.
+ *
+ * OpenSearch is a fork of Elasticsearch 7.10, so the query DSL is identical and
+ * the translator is shared (see ../../query/opensearch). The differences this
+ * adapter exists to absorb are all in the client transport:
+ *   - requests nest their payload under `body` (the older 7.x client style),
+ *   - responses wrap their payload under `response.body`.
+ *
+ * One subtlety worth knowing: the Elasticsearch and OpenSearch clients ship
+ * SEPARATE generated TypeScript type universes (estypes vs the OpenSearch
+ * `api/_types`). The request JSON is byte-for-byte identical at runtime, but the
+ * two type sets do not unify, so the shared translator's output is cast to the
+ * OpenSearch request-body types at the call boundary. The casts are the type
+ * system catching up to a runtime fact, not a behavioural workaround.
+ *
+ * This is the only file (besides its shared translator) that imports the
+ * OpenSearch client.
+ */
+import { Client, errors } from '@opensearch-project/opensearch';
+import type { SearchEngine } from '../../engine';
+import type {
+  BulkError,
+  BulkResult,
+  Document,
+  EngineConfig,
+  ExplainResult,
+  FieldType,
+  Hit,
+  IndexSchema,
+  SearchOptions,
+  SearchResult,
+} from '../../types';
+import type { Query } from '../../query/types';
+import { buildSearchBody, translateClause } from '../../query/opensearch';
+
+/** Our neutral field types mapped to OpenSearch mapping properties. */
+const FIELD_TYPE_TO_OS: Record<FieldType, { type: string }> = {
+  text: { type: 'text' },
+  keyword: { type: 'keyword' },
+  integer: { type: 'integer' },
+  float: { type: 'float' },
+  boolean: { type: 'boolean' },
+  date: { type: 'date' },
+};
+
+/** Minimal shape of OpenSearch's nested score-explanation tree. */
+interface ExplanationNode {
+  value: number;
+  description: string;
+  details?: ExplanationNode[];
+}
+
+/**
+ * The fields we read off a search hit. We type these ourselves because the
+ * OpenSearch client's generated `HitsMetadata.hits` type is malformed in this
+ * version (it resolves to `Hit & {_source?: T}[]`, an intersection-with-array
+ * that drops `_id`/`_score`/`highlight` when you iterate). So we read the hits
+ * through this minimal, correct shape instead.
+ */
+interface OsSearchHit {
+  _id?: string | number;
+  _score?: number | null;
+  _source?: Record<string, unknown>;
+  highlight?: Record<string, string[]>;
+}
+
+/**
+ * Bridge the shared translator's output to the OpenSearch client's request-body
+ * types. The Elasticsearch and OpenSearch clients ship separate generated type
+ * universes, but the request JSON is byte-for-byte identical at runtime (they
+ * share the query DSL). The expected `T` is inferred from the call site, so this
+ * stays as type-safe as the boundary allows without coupling to either client's
+ * internal type names.
+ */
+function toOsBody<T>(body: object): T {
+  return body as unknown as T;
+}
+
+export class OpenSearchAdapter implements SearchEngine {
+  private readonly client: Client;
+
+  constructor(config: EngineConfig) {
+    this.client = new Client({
+      node: config.node,
+      ...(config.username !== undefined && config.password !== undefined
+        ? { auth: { username: config.username, password: config.password } }
+        : {}),
+    });
+  }
+
+  async createIndex(name: string, schema: IndexSchema): Promise<void> {
+    // indices.exists does not throw on 404; it resolves with the status code.
+    const exists = await this.client.indices.exists({ index: name });
+    if (exists.statusCode === 200) return;
+
+    const properties: Record<string, { type: string }> = {};
+    for (const [field, def] of Object.entries(schema.fields)) {
+      properties[field] = FIELD_TYPE_TO_OS[def.type];
+    }
+    await this.client.indices.create({
+      index: name,
+      body: toOsBody({ mappings: { properties } }),
+    });
+  }
+
+  async bulkIndex(index: string, docs: Document[]): Promise<BulkResult> {
+    if (docs.length === 0) return { indexed: 0, errors: [] };
+
+    const operations: Record<string, unknown>[] = [];
+    for (const { id, ...source } of docs) {
+      operations.push({ index: { _index: index, _id: id } });
+      operations.push(source);
+    }
+
+    const response = await this.client.bulk({ body: operations, refresh: true });
+
+    const errorList: BulkError[] = [];
+    let indexed = 0;
+    for (const item of response.body.items ?? []) {
+      const result = item.index;
+      if (result?.error) {
+        errorList.push({
+          id: String(result._id),
+          reason: result.error.reason ?? 'unknown error',
+        });
+      } else {
+        indexed++;
+      }
+    }
+    return { indexed, errors: errorList };
+  }
+
+  async search(index: string, query: Query, opts?: SearchOptions): Promise<SearchResult> {
+    const response = await this.client.search({
+      index,
+      body: toOsBody(buildSearchBody(query)),
+      ...(opts?.timeoutMs !== undefined ? { timeout: `${opts.timeoutMs}ms` } : {}),
+    });
+
+    const body = response.body;
+    const totalRaw = body.hits.total;
+    const total = typeof totalRaw === 'number' ? totalRaw : (totalRaw?.value ?? 0);
+
+    const rawHits = body.hits.hits as unknown as OsSearchHit[];
+    const hits: Hit[] = rawHits.map((h) => {
+      const hit: Hit = {
+        id: String(h._id),
+        score: h._score ?? 0,
+        source: h._source ?? {},
+      };
+      if (h.highlight) hit.highlights = h.highlight;
+      return hit;
+    });
+
+    return { total, hits, tookMs: body.took ?? 0 };
+  }
+
+  async explain(index: string, query: Query, docId: string): Promise<ExplainResult> {
+    const response = await this.client.explain({
+      index,
+      id: docId,
+      body: toOsBody({ query: translateClause(query.where) }),
+    });
+    const explanation = response.body.explanation as ExplanationNode | undefined;
+    return {
+      id: docId,
+      matched: response.body.matched,
+      score: explanation?.value ?? 0,
+      detail: formatExplanation(explanation),
+    };
+  }
+
+  async deleteDocs(index: string, ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const operations = ids.map((id) => ({ delete: { _index: index, _id: id } }));
+    await this.client.bulk({ body: operations, refresh: true });
+  }
+
+  async dropIndex(name: string): Promise<void> {
+    try {
+      await this.client.indices.delete({ index: name });
+    } catch (err) {
+      if (err instanceof errors.ResponseError && err.statusCode === 404) return;
+      throw err;
+    }
+  }
+
+  /** Release the client's connections. Not part of the SearchEngine interface. */
+  async close(): Promise<void> {
+    await this.client.close();
+  }
+}
+
+/** Flatten OpenSearch's nested score-explanation tree into a readable string. */
+function formatExplanation(node: ExplanationNode | undefined, depth = 0): string {
+  if (!node) return '';
+  const indent = '  '.repeat(depth);
+  const line = `${indent}${node.value} ${node.description}`;
+  const children = (node.details ?? []).map((child) => formatExplanation(child, depth + 1));
+  return [line, ...children].join('\n');
+}
