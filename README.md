@@ -68,7 +68,7 @@ Primitives: `match` (full-text), `term` (exact), `bool` (must / should / must_no
                  │   explain deleteDocs dropIndex│
                  └───────────────┬───────────────┘
                                  │ implemented by
-            ┌────────────────────┼────────────────────┐
+            ┌────────────────────┼─────────────────────┐
             ▼                    ▼                     ▼
      ElasticsearchAdapter   OpenSearchAdapter     SolrAdapter
             │                    │                     │
