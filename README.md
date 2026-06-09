@@ -138,6 +138,21 @@ placement rather than pretending the raw scores are equal. On this small, clean 
 engines also agree on the ordering; on noisier real data the rankings diverge, and the table is
 where you see it.
 
+## Web UI
+
+A small Next.js app under [`web/`](./web) lets you test everything in the browser: run one query
+across all three engines and see the ranking differences, search a single engine with
+highlights, and explain a document's score. The browser talks only to server-side route handlers,
+which use this library to reach the engines.
+
+```bash
+docker compose --profile all up -d   # engines
+npm install && npm run build         # build the library the UI imports
+cd web && npm install && npm run dev # then open http://localhost:3000
+```
+
+See [web/README.md](./web/README.md) for details.
+
 ## Development
 
 Requires Node.js 22+.

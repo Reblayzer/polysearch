@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+
+:root {
+  --background: #0b0f17;
+  --foreground: #e6edf3;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Search-result highlight markers returned by the engines. */
+mark,
+em {
+  background: rgba(56, 189, 248, 0.18);
+  color: #7dd3fc;
+  font-style: normal;
+  border-radius: 2px;
+  padding: 0 1px;
+}

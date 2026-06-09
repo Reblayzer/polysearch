@@ -5,7 +5,8 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'coverage/**', 'node_modules/**'] },
+  // web/ is a separate Next.js app with its own ESLint/Prettier/tsconfig.
+  { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'web/**'] },
 
   js.configs.recommended,
 
