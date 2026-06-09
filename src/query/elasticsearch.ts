@@ -1,8 +1,11 @@
 /**
- * Translator: unified Query DSL -> Elasticsearch query language.
+ * Translator: unified Query DSL -> the Elasticsearch-family query JSON.
  *
  * This is a pure function (no I/O), which is why it can be unit-tested without a
- * running engine. The Elasticsearch adapter calls it to build the request body.
+ * running engine. The Elasticsearch and OpenSearch adapters both call it: the
+ * query DSL is identical between those engines, so it emits one neutral shape
+ * (see ./compiled) that is assignable to both clients' request types without a
+ * cast.
  *
  * The mapping is close to one-to-one because the unified DSL was modelled on this
  * family of engines. The few real differences are the naming quirks handled here:
@@ -11,12 +14,12 @@
  *   - sort [{field, order}]   -> [{ field: { order } }]
  *   - highlight.fields []     -> highlight.fields { name: {} }
  */
-import type { estypes } from '@elastic/elasticsearch';
 import type { BoolQuery, Query, QueryClause, RangeQuery } from './types';
+import type { CompiledBool, CompiledQuery, CompiledRange, CompiledSearchBody } from './compiled';
 import { assertValidFieldName } from './field';
 
-/** Translate a single query clause into an Elasticsearch query container. */
-export function translateClause(clause: QueryClause): estypes.QueryDslQueryContainer {
+/** Translate a single query clause into a compiled query container. */
+export function translateClause(clause: QueryClause): CompiledQuery {
   switch (clause.type) {
     case 'match':
       assertValidFieldName(clause.field);
@@ -39,8 +42,8 @@ export function translateClause(clause: QueryClause): estypes.QueryDslQueryConta
 }
 
 /** Only emit the bounds that are actually set. */
-function translateRange(clause: RangeQuery): estypes.QueryDslRangeQuery {
-  const bounds: Record<string, number | string> = {};
+function translateRange(clause: RangeQuery): CompiledRange {
+  const bounds: CompiledRange = {};
   if (clause.gt !== undefined) bounds.gt = clause.gt;
   if (clause.gte !== undefined) bounds.gte = clause.gte;
   if (clause.lt !== undefined) bounds.lt = clause.lt;
@@ -48,8 +51,8 @@ function translateRange(clause: RangeQuery): estypes.QueryDslRangeQuery {
   return bounds;
 }
 
-function translateBool(clause: BoolQuery): estypes.QueryDslBoolQuery {
-  const bool: estypes.QueryDslBoolQuery = {};
+function translateBool(clause: BoolQuery): CompiledBool {
+  const bool: CompiledBool = {};
   if (clause.must) bool.must = clause.must.map(translateClause);
   if (clause.should) bool.should = clause.should.map(translateClause);
   if (clause.mustNot) bool.must_not = clause.mustNot.map(translateClause);
@@ -61,11 +64,11 @@ function translateBool(clause: BoolQuery): estypes.QueryDslBoolQuery {
 }
 
 /**
- * Build a full Elasticsearch search request body (everything except the index,
- * which the adapter passes separately) from a unified Query.
+ * Build a full search request body (everything except the index, which the
+ * adapter passes separately) from a unified Query.
  */
-export function buildSearchBody(query: Query): estypes.SearchRequest {
-  const body: estypes.SearchRequest = {
+export function buildSearchBody(query: Query): CompiledSearchBody {
+  const body: CompiledSearchBody = {
     query: translateClause(query.where),
   };
 
@@ -80,12 +83,12 @@ export function buildSearchBody(query: Query): estypes.SearchRequest {
   }
 
   if (query.highlight) {
-    const fields: Record<string, estypes.SearchHighlightField> = {};
+    const fields: Record<string, Record<string, never>> = {};
     for (const field of query.highlight.fields) {
       assertValidFieldName(field);
       fields[field] = {};
     }
-    const highlight: estypes.SearchHighlight = { fields };
+    const highlight: CompiledSearchBody['highlight'] = { fields };
     if (query.highlight.preTag !== undefined) highlight.pre_tags = [query.highlight.preTag];
     if (query.highlight.postTag !== undefined) highlight.post_tags = [query.highlight.postTag];
     body.highlight = highlight;

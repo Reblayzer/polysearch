@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-09
+
+Remove the OpenSearch request-body casts by emitting a neutral compiled-query type.
+
+### Changed
+
+- The query translator now emits a neutral compiled-query shape (`src/query/compiled.ts`)
+  designed to be assignable to both the Elasticsearch and OpenSearch clients, so **request bodies
+  no longer need a cast on either engine** (the `toOsBody` helper is gone). The only remaining
+  type assertion is on the response side, reading hits through a corrected local shape because the
+  OpenSearch client's generated hit type is malformed in the pinned version (a genuine upstream
+  bug).
+- **Breaking (types):** `RangeQuery` bounds are now `number` instead of `number | string` (for
+  date fields, use epoch milliseconds). This is what lets the compiled range unify across engines
+  without a cast, since OpenSearch's generated `RangeQuery` is a strict number-or-date union with
+  no untyped variant.
+
+[0.4.0]: https://github.com/Reblayzer/polysearch/releases/tag/v0.4.0
+
 ## [0.3.0] - 2026-06-09
 
 Configurable timeouts, a coverage threshold, and integration tests in CI.

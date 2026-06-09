@@ -109,11 +109,12 @@ OpenSearch adapter:
 
 - requests nest their payload under `body` (the older 7.x client style), and responses wrap
   theirs under `response.body`;
-- the two official clients ship separate generated TypeScript type universes, so the shared
-  translator's output is cast to the OpenSearch body types at the call boundary (the request
-  JSON is identical at runtime);
-- the OpenSearch client's generated search-hit type is malformed in the pinned version, so the
-  adapter reads hits through a small, correct local shape.
+- the two official clients ship separate, mutually incompatible generated type universes, so the
+  translator emits a neutral compiled-query shape (`src/query/compiled.ts`) deliberately
+  assignable to both clients' request types, request bodies need no cast on either engine;
+- the OpenSearch client's generated search-hit type is malformed in the pinned version (it drops
+  `_id`/`_score` when iterated), so the adapter reads responses through a small, correct local
+  shape, the one place a type assertion remains, and it is handling a genuine upstream bug.
 
 This is the clearest demonstration of why the interface earns its keep: two engines that are
 nearly identical at the query level still differ enough at the client level that a caller should

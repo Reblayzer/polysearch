@@ -7,12 +7,12 @@
  *   - requests nest their payload under `body` (the older 7.x client style),
  *   - responses wrap their payload under `response.body`.
  *
- * One subtlety worth knowing: the Elasticsearch and OpenSearch clients ship
- * SEPARATE generated TypeScript type universes (estypes vs the OpenSearch
- * `api/_types`). The request JSON is byte-for-byte identical at runtime, but the
- * two type sets do not unify, so the shared translator's output is cast to the
- * OpenSearch request-body types at the call boundary. The casts are the type
- * system catching up to a runtime fact, not a behavioural workaround.
+ * Types: the translator emits a neutral compiled-query shape (see
+ * ../../query/compiled) deliberately designed to be assignable to BOTH the
+ * Elasticsearch and OpenSearch clients, so request bodies need no cast. The only
+ * assertion that remains is on the response side: the OpenSearch client's
+ * generated search-hit type is malformed in this version (see OsSearchHit), so
+ * hits are read through a small, correct local shape.
  *
  * This is the only file (besides its shared translator) that imports the
  * OpenSearch client.
@@ -34,15 +34,17 @@ import type {
 import type { Query } from '../../query/types';
 import { buildSearchBody, translateClause } from '../../query/opensearch';
 
-/** Our neutral field types mapped to OpenSearch mapping properties. */
-const FIELD_TYPE_TO_OS: Record<FieldType, { type: string }> = {
+/** Our neutral field types mapped to OpenSearch mapping properties. `as const`
+ * gives each `type` a literal type so the mapping is assignable to the client's
+ * `Property` type without a cast. */
+const FIELD_TYPE_TO_OS = {
   text: { type: 'text' },
   keyword: { type: 'keyword' },
   integer: { type: 'integer' },
   float: { type: 'float' },
   boolean: { type: 'boolean' },
   date: { type: 'date' },
-};
+} as const satisfies Record<FieldType, { type: string }>;
 
 /** Minimal shape of OpenSearch's nested score-explanation tree. */
 interface ExplanationNode {
@@ -65,18 +67,6 @@ interface OsSearchHit {
   highlight?: Record<string, string[]>;
 }
 
-/**
- * Bridge the shared translator's output to the OpenSearch client's request-body
- * types. The Elasticsearch and OpenSearch clients ship separate generated type
- * universes, but the request JSON is byte-for-byte identical at runtime (they
- * share the query DSL). The expected `T` is inferred from the call site, so this
- * stays as type-safe as the boundary allows without coupling to either client's
- * internal type names.
- */
-function toOsBody<T>(body: object): T {
-  return body as unknown as T;
-}
-
 export class OpenSearchAdapter implements SearchEngine {
   private readonly client: Client;
 
@@ -97,14 +87,11 @@ export class OpenSearchAdapter implements SearchEngine {
     const exists = await this.client.indices.exists({ index: name });
     if (exists.statusCode === 200) return;
 
-    const properties: Record<string, { type: string }> = {};
+    const properties: Record<string, (typeof FIELD_TYPE_TO_OS)[FieldType]> = {};
     for (const [field, def] of Object.entries(schema.fields)) {
       properties[field] = FIELD_TYPE_TO_OS[def.type];
     }
-    await this.client.indices.create({
-      index: name,
-      body: toOsBody({ mappings: { properties } }),
-    });
+    await this.client.indices.create({ index: name, body: { mappings: { properties } } });
   }
 
   async bulkIndex(index: string, docs: Document[]): Promise<BulkResult> {
@@ -138,7 +125,7 @@ export class OpenSearchAdapter implements SearchEngine {
     const response = await this.client.search(
       {
         index,
-        body: toOsBody(buildSearchBody(query)),
+        body: buildSearchBody(query),
         ...(opts?.timeoutMs !== undefined ? { timeout: `${opts.timeoutMs}ms` } : {}),
       },
       // Client-side abort, so a per-call timeout bounds the wait on both sides.
@@ -167,7 +154,7 @@ export class OpenSearchAdapter implements SearchEngine {
     const response = await this.client.explain({
       index,
       id: docId,
-      body: toOsBody({ query: translateClause(query.where) }),
+      body: { query: translateClause(query.where) },
     });
     const explanation = response.body.explanation as ExplanationNode | undefined;
     return {

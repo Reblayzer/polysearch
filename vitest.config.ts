@@ -21,6 +21,7 @@ export default defineConfig({
         'src/types.ts',
         'src/engine.ts',
         'src/query/types.ts',
+        'src/query/compiled.ts',
         'src/query/opensearch.ts',
       ],
       thresholds: { lines: 90, functions: 90, branches: 85, statements: 90 },

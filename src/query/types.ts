@@ -23,16 +23,18 @@ export interface TermQuery {
 }
 
 /**
- * Numeric or date range. Any combination of bounds may be set.
- * gt = greater than, gte = greater-than-or-equal, lt/lte mirror that.
+ * Numeric range. Any combination of bounds may be set; gt = greater than,
+ * gte = greater-than-or-equal, lt/lte mirror that. Bounds are numbers (for date
+ * fields, use epoch milliseconds), which keeps the compiled query assignable to
+ * every engine's client without a cast.
  */
 export interface RangeQuery {
   type: 'range';
   field: string;
-  gt?: number | string;
-  gte?: number | string;
-  lt?: number | string;
-  lte?: number | string;
+  gt?: number;
+  gte?: number;
+  lt?: number;
+  lte?: number;
 }
 
 /**
