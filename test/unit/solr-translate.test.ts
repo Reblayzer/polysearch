@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toSolrQuery } from '../../src/query/solr';
+import { toSolrQuery, toSolrSuggest } from '../../src/query/solr';
 
 describe('Solr translator: single clauses', () => {
   it('translates a match clause into a field query', () => {
@@ -62,5 +62,33 @@ describe('Solr translator: bool clauses', () => {
     });
 
     expect(result).toEqual({ q: '*:*', fq: ['category:"lighting"'] });
+  });
+});
+
+describe('Solr translator: suggest', () => {
+  it('requires every token and wildcards only the last', () => {
+    expect(toSolrSuggest({ field: 'title', prefix: 'table la' })).toBe('title:(+table +la*)');
+  });
+
+  it('handles a single-token prefix', () => {
+    expect(toSolrSuggest({ field: 'title', prefix: 'lamp' })).toBe('title:(+lamp*)');
+  });
+
+  it('collapses surrounding and repeated whitespace', () => {
+    expect(toSolrSuggest({ field: 'title', prefix: '  table   la ' })).toBe('title:(+table +la*)');
+  });
+
+  it('escapes Lucene specials in tokens but keeps the trailing wildcard live', () => {
+    // The ':' in the user input is escaped; the appended '*' is real syntax.
+    expect(toSolrSuggest({ field: 'title', prefix: 'a:b' })).toBe('title:(+a\\:b*)');
+  });
+
+  it('returns an empty q for an empty or whitespace-only prefix', () => {
+    expect(toSolrSuggest({ field: 'title', prefix: '' })).toBe('');
+    expect(toSolrSuggest({ field: 'title', prefix: '   ' })).toBe('');
+  });
+
+  it('rejects an invalid field name', () => {
+    expect(() => toSolrSuggest({ field: 'title:x OR price', prefix: 'la' })).toThrow();
   });
 });

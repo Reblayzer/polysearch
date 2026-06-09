@@ -87,6 +87,31 @@ export interface SearchOptions {
 }
 
 /**
+ * An autocomplete request: complete `field` against what the user has typed so
+ * far in `prefix`. The final whitespace-separated token of `prefix` is matched
+ * as a prefix, earlier tokens as whole words, so "table la" suggests values like
+ * "table lamp". `field` should be an analyzed `text` field.
+ */
+export interface SuggestRequest {
+  field: string;
+  prefix: string;
+  /** Maximum number of suggestions to return. Defaults to 10. */
+  size?: number;
+}
+
+/** One autocomplete suggestion: a completed field value and its relevance score. */
+export interface Suggestion {
+  text: string;
+  /** The engine's relevance score for the document this value came from. */
+  score: number;
+}
+
+/** The result of a suggest call: ranked, de-duplicated completions. */
+export interface SuggestResult {
+  suggestions: Suggestion[];
+}
+
+/**
  * Connection settings for an engine adapter.
  *
  * Auth differs by engine, which mirrors how the engines themselves differ:

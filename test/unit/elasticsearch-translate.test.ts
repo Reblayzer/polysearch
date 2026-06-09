@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSearchBody, translateClause } from '../../src/query/elasticsearch';
+import { buildSearchBody, buildSuggestBody, translateClause } from '../../src/query/elasticsearch';
 import type { Query } from '../../src/query/types';
 
 describe('Elasticsearch translator: clauses', () => {
@@ -102,5 +102,23 @@ describe('Elasticsearch translator: full search body', () => {
   it('omits paging, sort and highlight when not provided', () => {
     const body = buildSearchBody({ where: { type: 'term', field: 'id', value: '12' } });
     expect(body).toEqual({ query: { term: { id: { value: '12' } } } });
+  });
+});
+
+describe('Elasticsearch translator: suggest body', () => {
+  it('builds a match_phrase_prefix query narrowed to the completed field', () => {
+    expect(buildSuggestBody({ field: 'title', prefix: 'table la', size: 5 })).toEqual({
+      query: { match_phrase_prefix: { title: { query: 'table la' } } },
+      size: 5,
+      _source: ['title'],
+    });
+  });
+
+  it('defaults size to 10 when unset', () => {
+    expect(buildSuggestBody({ field: 'title', prefix: 'la' }).size).toBe(10);
+  });
+
+  it('rejects an invalid field name', () => {
+    expect(() => buildSuggestBody({ field: 'title:x OR price', prefix: 'la' })).toThrow();
   });
 });

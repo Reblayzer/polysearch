@@ -116,6 +116,19 @@ describe.skipIf(!RUN)('SolrAdapter (integration)', () => {
     expect(res.detail.length).toBeGreaterThan(0);
   });
 
+  it('autocompletes a title by prefix', async () => {
+    const res = await engine.suggest(INDEX, { field: 'title', prefix: 'table la' });
+    expect(res.suggestions[0]?.text).toBe('Table lamp BORRE');
+    // "Oak dining table" has "table" but no token starting with "la", so the
+    // required-token (AND) semantics exclude it.
+    expect(res.suggestions.map((s) => s.text)).not.toContain('Oak dining table');
+  });
+
+  it('returns no suggestions for an empty prefix', async () => {
+    const res = await engine.suggest(INDEX, { field: 'title', prefix: '   ' });
+    expect(res.suggestions).toEqual([]);
+  });
+
   it('deletes documents by id', async () => {
     await engine.deleteDocs(INDEX, ['2']);
     const res = await engine.search(INDEX, {

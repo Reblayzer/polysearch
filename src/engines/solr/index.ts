@@ -22,10 +22,13 @@ import type {
   IndexSchema,
   SearchOptions,
   SearchResult,
+  SuggestRequest,
+  SuggestResult,
 } from '../../types';
 import type { Query } from '../../query/types';
-import { toSolrQuery } from '../../query/solr';
+import { toSolrQuery, toSolrSuggest } from '../../query/solr';
 import { assertValidFieldName } from '../../query/field';
+import { dedupeSuggestions } from '../../suggest';
 import { EngineRequestError, TimeoutError } from '../../errors';
 
 /** Our neutral field types mapped to Solr field types. */
@@ -192,6 +195,28 @@ export class SolrAdapter implements SearchEngine {
       opts?.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : undefined,
     );
     return mapSelectResponse(data);
+  }
+
+  async suggest(index: string, request: SuggestRequest): Promise<SuggestResult> {
+    const q = toSolrSuggest(request);
+    // An empty prefix yields no q to complete; skip the round-trip.
+    if (q === '') return { suggestions: [] };
+
+    const size = request.size ?? 10;
+    const params = new URLSearchParams();
+    params.set('q', q);
+    params.set('fl', `${request.field},score`);
+    params.set('rows', String(size));
+    params.set('wt', 'json');
+
+    const data = await this.request<SolrSelectResponse>(
+      `/${encodeURIComponent(index)}/select?${params.toString()}`,
+    );
+    const raw = data.response.docs.map((doc) => ({
+      text: doc[request.field],
+      score: typeof doc.score === 'number' ? doc.score : 0,
+    }));
+    return { suggestions: dedupeSuggestions(raw, size) };
   }
 
   async explain(index: string, query: Query, docId: string): Promise<ExplainResult> {

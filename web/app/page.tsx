@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import type { ComparisonResult, ExplainResult, Hit, SearchResult } from 'polysearch';
+import { useCallback, useEffect, useState } from 'react';
+import type { ComparisonResult, ExplainResult, Hit, SearchResult, Suggestion } from 'polysearch';
 
 type EngineKey = 'es' | 'os' | 'solr';
 
@@ -35,6 +35,49 @@ export default function Home() {
   const [compareData, setCompareData] = useState<CompareResponse | null>(null);
   const [searchData, setSearchData] = useState<SearchResult | null>(null);
   const [seedMsg, setSeedMsg] = useState<string | null>(null);
+
+  // As-you-type autocomplete. Compare mode has several engines selected, so the
+  // dropdown completes against the first of them; search mode uses its engine.
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggest, setShowSuggest] = useState(false);
+  const suggestEngine = mode === 'search' ? searchEngine : (engines[0] ?? 'es');
+
+  useEffect(() => {
+    const prefix = q.trim();
+    // Debounce: wait for a pause in typing before asking the engine. All state
+    // updates happen inside this callback (never synchronously in the effect
+    // body) so a keystroke does not trigger a cascading render.
+    const timer = setTimeout(() => {
+      if (!showSuggest || prefix === '') {
+        setSuggestions([]);
+        return;
+      }
+      void (async () => {
+        try {
+          const res = await fetch('/api/suggest', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ engine: suggestEngine, prefix: q, field }),
+          });
+          if (!res.ok) {
+            setSuggestions([]);
+            return;
+          }
+          const data = (await res.json()) as { suggestions?: Suggestion[] };
+          setSuggestions(data.suggestions ?? []);
+        } catch {
+          setSuggestions([]);
+        }
+      })();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [q, field, suggestEngine, showSuggest]);
+
+  const pickSuggestion = (text: string) => {
+    setQ(text);
+    setShowSuggest(false);
+    setSuggestions([]);
+  };
 
   const run = useCallback(async () => {
     setLoading(true);
@@ -113,13 +156,55 @@ export default function Home() {
 
       <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
         <div className="flex flex-col gap-3 sm:flex-row">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && void run()}
-            placeholder="Search query…"
-            className="flex-1 rounded-lg border border-white/10 bg-black/30 px-4 py-2.5 text-sm outline-none placeholder:text-white/30 focus:border-sky-400/50"
-          />
+          <div className="relative flex-1">
+            <input
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setShowSuggest(true);
+              }}
+              onFocus={() => setShowSuggest(true)}
+              onBlur={() => setShowSuggest(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setShowSuggest(false);
+                  void run();
+                } else if (e.key === 'Escape') {
+                  setShowSuggest(false);
+                }
+              }}
+              placeholder="Search query…"
+              className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-2.5 text-sm outline-none placeholder:text-white/30 focus:border-sky-400/50"
+            />
+            {showSuggest && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-white/10 bg-slate-900 shadow-xl shadow-black/40">
+                <ul>
+                  {suggestions.map((s) => (
+                    <li key={s.text}>
+                      <button
+                        type="button"
+                        // onMouseDown fires before the input's onBlur, so the
+                        // pick lands before the dropdown is told to close.
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          pickSuggestion(s.text);
+                        }}
+                        className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm text-white/80 transition hover:bg-white/10"
+                      >
+                        <span className="truncate">{s.text}</span>
+                        <span className="shrink-0 text-xs tabular-nums text-white/30">
+                          {s.score.toFixed(2)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="border-t border-white/5 px-4 py-1.5 text-[11px] text-white/30">
+                  autocomplete via {ENGINE_META[suggestEngine].label} · {field}
+                </div>
+              </div>
+            )}
+          </div>
           <select
             value={field}
             onChange={(e) => setField(e.target.value)}

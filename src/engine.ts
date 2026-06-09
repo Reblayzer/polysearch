@@ -10,6 +10,8 @@ import type {
   IndexSchema,
   SearchOptions,
   SearchResult,
+  SuggestRequest,
+  SuggestResult,
 } from './types';
 import type { Query } from './query/types';
 
@@ -22,6 +24,9 @@ export interface SearchEngine {
 
   /** Run a unified query and return a page of scored, ranked hits. */
   search(index: string, query: Query, opts?: SearchOptions): Promise<SearchResult>;
+
+  /** Autocomplete a field by prefix and return ranked, de-duplicated suggestions. */
+  suggest(index: string, request: SuggestRequest): Promise<SuggestResult>;
 
   /** Explain how a single document scored against a query (for debugging relevance). */
   explain(index: string, query: Query, docId: string): Promise<ExplainResult>;

@@ -33,4 +33,9 @@ describe('OpenSearch translator (shared with Elasticsearch)', () => {
     const clause = { type: 'term', field: 'category', value: 'lighting' } as const;
     expect(os.translateClause(clause)).toEqual(es.translateClause(clause));
   });
+
+  it('re-exports buildSuggestBody with identical output', () => {
+    const request = { field: 'title', prefix: 'table la', size: 5 };
+    expect(os.buildSuggestBody(request)).toEqual(es.buildSuggestBody(request));
+  });
 });

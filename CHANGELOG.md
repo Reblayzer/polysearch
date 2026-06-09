@@ -4,6 +4,39 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-09
+
+Prefix-based autocomplete (`suggest`) across all three engines, plus a live as-you-type
+dropdown in the web UI.
+
+### Added
+
+- **`SearchEngine.suggest(index, request)`** — autocomplete a `text` field by prefix and return
+  ranked, de-duplicated completions (`SuggestRequest`, `Suggestion`, `SuggestResult`). The last
+  whitespace-separated token is matched as a prefix, earlier tokens as whole words, so `"table la"`
+  suggests `"Table lamp BORRE"`. An empty or whitespace-only prefix returns no suggestions without
+  a round-trip.
+- **Engine translators**: `buildSuggestBody` for the Elasticsearch family (a `match_phrase_prefix`
+  query narrowed to the completed field via `_source`), shared by OpenSearch; `toSolrSuggest` for
+  Solr (`field:(+token +prefix*)` in Lucene syntax). Both are pure and unit-tested.
+- **Web UI**: a debounced as-you-type suggestions dropdown under the search box, backed by a new
+  `/api/suggest` route handler.
+
+### Notes
+
+- **Documented divergence**: Elasticsearch/OpenSearch `match_phrase_prefix` requires the tokens to
+  be adjacent and in order; Solr's `+a +b*` only requires both to be present (an AND, not a
+  phrase). The practical autocomplete results match; exact phrase semantics on Solr would need the
+  heavier `{!complexphrase}` parser. This is recorded at the call site, in the same spirit as the
+  existing `minimumShouldMatch` leak.
+- Implemented with prefix matching rather than native completion suggesters (the Elasticsearch/
+  OpenSearch `completion` field type and Solr's suggester component) so it works on existing
+  indexes with no schema changes and stays consistent across all three engines.
+- The CLI does not yet expose a `suggest` command, and the `README` does not yet document the
+  `suggest` API; both are intentional follow-ups.
+
+[0.5.0]: https://github.com/Reblayzer/polysearch/releases/tag/v0.5.0
+
 ## [0.4.0] - 2026-06-09
 
 Remove the OpenSearch request-body casts by emitting a neutral compiled-query type.

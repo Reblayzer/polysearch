@@ -62,6 +62,9 @@ export type {
   IndexSchema,
   SearchOptions,
   SearchResult,
+  SuggestRequest,
+  Suggestion,
+  SuggestResult,
 } from './types';
 
 export type {

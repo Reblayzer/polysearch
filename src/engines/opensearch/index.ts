@@ -30,9 +30,12 @@ import type {
   IndexSchema,
   SearchOptions,
   SearchResult,
+  SuggestRequest,
+  SuggestResult,
 } from '../../types';
 import type { Query } from '../../query/types';
-import { buildSearchBody, translateClause } from '../../query/opensearch';
+import { buildSearchBody, buildSuggestBody, translateClause } from '../../query/opensearch';
+import { dedupeSuggestions } from '../../suggest';
 
 /** Our neutral field types mapped to OpenSearch mapping properties. `as const`
  * gives each `type` a literal type so the mapping is assignable to the client's
@@ -148,6 +151,20 @@ export class OpenSearchAdapter implements SearchEngine {
     });
 
     return { total, hits, tookMs: body.took ?? 0 };
+  }
+
+  async suggest(index: string, request: SuggestRequest): Promise<SuggestResult> {
+    // An empty prefix has nothing to complete; skip the round-trip.
+    if (request.prefix.trim() === '') return { suggestions: [] };
+
+    const body = buildSuggestBody(request);
+    const response = await this.client.search({ index, body });
+    const rawHits = response.body.hits.hits as unknown as OsSearchHit[];
+    const raw = rawHits.map((h) => ({
+      text: h._source?.[request.field],
+      score: h._score ?? 0,
+    }));
+    return { suggestions: dedupeSuggestions(raw, body.size) };
   }
 
   async explain(index: string, query: Query, docId: string): Promise<ExplainResult> {

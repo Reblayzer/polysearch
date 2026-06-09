@@ -20,6 +20,7 @@
  * here, because Solr's equivalent (`mm`) belongs to the edismax parser.
  */
 import type { BoolQuery, QueryClause, RangeQuery } from './types';
+import type { SuggestRequest } from '../types';
 import { assertValidFieldName } from './field';
 
 /** The Solr-shaped query: a main `q` string and zero or more `fq` filters. */
@@ -108,4 +109,32 @@ export function toSolrQuery(where: QueryClause): SolrQuery {
   const fq: string[] = [];
   const q = renderClause(where, fq);
   return { q: q === '' ? '*:*' : q, fq };
+}
+
+/**
+ * Build the Solr `q` for a prefix-based autocomplete.
+ *
+ * Solr has no `match_phrase_prefix`, so prefix semantics are expressed in Lucene
+ * query syntax: every token but the last is matched whole, the last token gets a
+ * trailing `*` wildcard, and each token is marked required (`+`) so all of them
+ * must match. Each token is escaped first, then the wildcard is appended to the
+ * final one as raw syntax (not escaped), so a user typing "table la" becomes
+ * `title:(+table +la*)`. An empty or whitespace-only prefix has no token to
+ * complete and yields `''`; the adapter treats that as "no suggestions" rather
+ * than sending a match-all.
+ *
+ * Documented divergence: this is an AND of the tokens, not a phrase. The
+ * Elasticsearch/OpenSearch `match_phrase_prefix` additionally requires the
+ * tokens to be adjacent and in order, whereas Solr's `+a +b*` only requires both
+ * to be present somewhere in the field. For autocomplete the practical results
+ * are the same; matching Solr's phrase semantics exactly would need the heavier
+ * `{!complexphrase}` parser.
+ */
+export function toSolrSuggest(request: SuggestRequest): string {
+  assertValidFieldName(request.field);
+  const tokens = request.prefix.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return '';
+  const last = tokens.length - 1;
+  const terms = tokens.map((token, i) => `+${escapeValue(token)}${i === last ? '*' : ''}`);
+  return `${request.field}:(${terms.join(' ')})`;
 }

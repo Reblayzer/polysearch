@@ -15,7 +15,14 @@
  *   - highlight.fields []     -> highlight.fields { name: {} }
  */
 import type { BoolQuery, Query, QueryClause, RangeQuery } from './types';
-import type { CompiledBool, CompiledQuery, CompiledRange, CompiledSearchBody } from './compiled';
+import type { SuggestRequest } from '../types';
+import type {
+  CompiledBool,
+  CompiledQuery,
+  CompiledRange,
+  CompiledSearchBody,
+  CompiledSuggestBody,
+} from './compiled';
 import { assertValidFieldName } from './field';
 
 /** Translate a single query clause into a compiled query container. */
@@ -95,4 +102,24 @@ export function buildSearchBody(query: Query): CompiledSearchBody {
   }
 
   return body;
+}
+
+/** The default number of suggestions to return when a request omits `size`. */
+const DEFAULT_SUGGEST_SIZE = 10;
+
+/**
+ * Build the request body for a prefix-based autocomplete on this engine family.
+ *
+ * `match_phrase_prefix` is the right primitive here: it analyzes the prefix the
+ * same way the field was indexed, requires the leading tokens to match in order,
+ * and treats only the last token as an open-ended prefix. `_source` is narrowed
+ * to the completed field so the response carries just the value to suggest.
+ */
+export function buildSuggestBody(request: SuggestRequest): CompiledSuggestBody {
+  assertValidFieldName(request.field);
+  return {
+    query: { match_phrase_prefix: { [request.field]: { query: request.prefix } } },
+    size: request.size ?? DEFAULT_SUGGEST_SIZE,
+    _source: [request.field],
+  };
 }

@@ -20,9 +20,12 @@ import type {
   IndexSchema,
   SearchOptions,
   SearchResult,
+  SuggestRequest,
+  SuggestResult,
 } from '../../types';
 import type { Query } from '../../query/types';
-import { buildSearchBody, translateClause } from '../../query/elasticsearch';
+import { buildSearchBody, buildSuggestBody, translateClause } from '../../query/elasticsearch';
+import { dedupeSuggestions } from '../../suggest';
 
 /** Our neutral field types mapped to Elasticsearch mapping properties. */
 const FIELD_TYPE_TO_ES: Record<FieldType, estypes.MappingProperty> = {
@@ -110,6 +113,19 @@ export class ElasticsearchAdapter implements SearchEngine {
       opts?.timeoutMs !== undefined ? { requestTimeout: opts.timeoutMs } : undefined,
     );
     return mapSearchResponse(response);
+  }
+
+  async suggest(index: string, request: SuggestRequest): Promise<SuggestResult> {
+    // An empty prefix has nothing to complete; skip the round-trip.
+    if (request.prefix.trim() === '') return { suggestions: [] };
+
+    const body = buildSuggestBody(request);
+    const response = await this.client.search({ index, ...body });
+    const raw = response.hits.hits.map((h) => ({
+      text: (h._source as Record<string, unknown> | undefined)?.[request.field],
+      score: h._score ?? 0,
+    }));
+    return { suggestions: dedupeSuggestions(raw, body.size) };
   }
 
   async explain(index: string, query: Query, docId: string): Promise<ExplainResult> {

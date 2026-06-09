@@ -12,6 +12,7 @@ import type { SearchEngine } from '../../src/engine';
 function stubEngine(search: SearchEngine['search']): SearchEngine {
   return {
     search,
+    suggest: () => Promise.resolve({ suggestions: [] }),
     createIndex: () => Promise.resolve(),
     bulkIndex: () => Promise.resolve({ indexed: 0, errors: [] }),
     explain: () => Promise.resolve({ id: '', matched: false, score: 0, detail: '' }),

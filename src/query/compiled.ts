@@ -46,3 +46,18 @@ export interface CompiledSearchBody {
   sort?: CompiledSort[];
   highlight?: CompiledHighlight;
 }
+
+/**
+ * The compiled body for a prefix-based suggest (autocomplete) request.
+ *
+ * `match_phrase_prefix` keeps the typed tokens in order and treats the final
+ * token as a prefix, which is exactly as-you-type semantics. `_source` is
+ * narrowed to the single completed field so the engine only ships back what the
+ * suggestion needs. Like CompiledSearchBody, this shape is a precise subset
+ * assignable to both the Elasticsearch and OpenSearch clients with no cast.
+ */
+export interface CompiledSuggestBody {
+  query: { match_phrase_prefix: Record<string, { query: string }> };
+  size: number;
+  _source: string[];
+}
