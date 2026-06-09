@@ -26,6 +26,7 @@ import type {
 import type { Query } from '../../query/types';
 import { toSolrQuery } from '../../query/solr';
 import { assertValidFieldName } from '../../query/field';
+import { EngineRequestError, TimeoutError } from '../../errors';
 
 /** Our neutral field types mapped to Solr field types. */
 const FIELD_TYPE_TO_SOLR: Record<FieldType, string> = {
@@ -91,13 +92,13 @@ export class SolrAdapter implements SearchEngine {
       res = await fetch(`${this.baseUrl}${path}`, fetchInit);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'TimeoutError') {
-        throw new Error(`Solr request timed out after ${timeoutMs}ms: ${path}`);
+        throw new TimeoutError(`Solr request timed out after ${timeoutMs}ms: ${path}`);
       }
       throw err;
     }
     if (!res.ok) {
       const detail = await res.text();
-      throw new Error(`Solr request failed (${res.status}) ${path}: ${detail}`);
+      throw new EngineRequestError(`Solr request failed: ${path}: ${detail}`, res.status);
     }
     return (await res.json()) as T;
   }

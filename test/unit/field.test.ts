@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { assertValidFieldName } from '../../src/query/field';
 import { translateClause } from '../../src/query/elasticsearch';
 import { toSolrQuery } from '../../src/query/solr';
+import { FieldValidationError } from '../../src/errors';
 
 describe('assertValidFieldName', () => {
   it('accepts normal field names', () => {
@@ -14,6 +15,10 @@ describe('assertValidFieldName', () => {
     for (const name of ['title:x OR price', 'a b', 'a(b', 'a:b', 'a"b', '*', '']) {
       expect(() => assertValidFieldName(name)).toThrow(/invalid field name/);
     }
+  });
+
+  it('throws a typed FieldValidationError', () => {
+    expect(() => assertValidFieldName('a:b')).toThrow(FieldValidationError);
   });
 });
 

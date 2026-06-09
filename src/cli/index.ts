@@ -9,7 +9,8 @@
 import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 import { compare, createEngine, formatComparison } from '../index';
-import type { Document, EngineName, IndexSchema, NamedEngine, Query, SearchEngine } from '../index';
+import type { EngineName, NamedEngine, Query, SearchEngine } from '../index';
+import { parseDocuments, parseSchema } from './parse';
 
 const DEFAULT_NODES: Record<EngineName, string> = {
   elasticsearch: 'http://localhost:9200',
@@ -65,14 +66,6 @@ function makeEngine(alias: string, nodeOverride?: string): SearchEngine {
   return createEngine(engineName, { node: nodeOverride ?? DEFAULT_NODES[engineName] });
 }
 
-function readNdjson(path: string): Document[] {
-  return readFileSync(path, 'utf8')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line) => JSON.parse(line) as Document);
-}
-
 function matchQuery(field: string, value: string, size: number): Query {
   return { where: { type: 'match', field, value }, size };
 }
@@ -98,10 +91,10 @@ program
   .action(async (options: IndexOptions) => {
     const engine = makeEngine(options.engine, options.node);
     if (options.schema !== undefined) {
-      const schema = JSON.parse(readFileSync(options.schema, 'utf8')) as IndexSchema;
-      await engine.createIndex(options.index, schema);
+      await engine.createIndex(options.index, parseSchema(readFileSync(options.schema, 'utf8')));
     }
-    const result = await engine.bulkIndex(options.index, readNdjson(options.file));
+    const documents = parseDocuments(readFileSync(options.file, 'utf8'));
+    const result = await engine.bulkIndex(options.index, documents);
     console.log(`indexed ${result.indexed} document(s), ${result.errors.length} error(s)`);
     for (const error of result.errors) console.log(`  ${error.id}: ${error.reason}`);
   });

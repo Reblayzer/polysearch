@@ -81,6 +81,8 @@ export class OpenSearchAdapter implements SearchEngine {
   private readonly client: Client;
 
   constructor(config: EngineConfig) {
+    // OpenSearch has no Elasticsearch-style API key, its client auth is basic
+    // auth or AWS SigV4, so `config.apiKey` is intentionally not used here.
     this.client = new Client({
       node: config.node,
       ...(config.username !== undefined && config.password !== undefined

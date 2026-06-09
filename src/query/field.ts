@@ -12,11 +12,13 @@
  * fields). This matches how real schema fields are named and rejects every
  * Lucene/Solr special character that injection would rely on.
  */
+import { FieldValidationError } from '../errors';
+
 const VALID_FIELD = /^[A-Za-z_][A-Za-z0-9_.]*$/;
 
 export function assertValidFieldName(field: string): void {
   if (!VALID_FIELD.test(field)) {
-    throw new Error(
+    throw new FieldValidationError(
       `invalid field name ${JSON.stringify(field)}: ` +
         'field names must be letters, digits, underscores or dots, starting with a letter or underscore',
     );

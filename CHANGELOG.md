@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-09
+
+Best-practices pass: typed errors, input validation, and accurate per-engine auth.
+
+### Added
+
+- **Elasticsearch API-key auth.** `EngineConfig.apiKey` is preferred over basic auth on the
+  Elasticsearch adapter (API keys are Elasticsearch's native scoped, revocable service auth). It
+  is ignored by OpenSearch and Solr, which have no native API-key concept (OpenSearch also
+  supports AWS SigV4, not wired here). This corrects a docs claim that previously overstated
+  auth support.
+- **Typed errors** (`src/errors.ts`): every error polysearch throws now extends `PolysearchError`
+  (`FieldValidationError`, `EngineRequestError` with a `statusCode`, `TimeoutError`), so callers
+  can discriminate by type instead of string-matching messages.
+- **CLI input validation** (`src/cli/parse.ts`): schema and document files are validated at the
+  boundary with clear errors and line numbers, instead of unchecked `as` type assertions.
+
+[0.2.0]: https://github.com/Reblayzer/polysearch/releases/tag/v0.2.0
+
 ## [0.1.1] - 2026-06-09
 
 Security and robustness hardening, from an adversarial review of the codebase.

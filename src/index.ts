@@ -11,6 +11,7 @@ import type { SearchEngine } from './engine';
 import { ElasticsearchAdapter } from './engines/elasticsearch';
 import { OpenSearchAdapter } from './engines/opensearch';
 import { SolrAdapter } from './engines/solr';
+import { PolysearchError } from './errors';
 
 /**
  * Build an engine adapter by name. This is the one place callers pick a backend;
@@ -26,7 +27,7 @@ export function createEngine(name: EngineName, config: EngineConfig): SearchEngi
       return new SolrAdapter(config);
     default: {
       const exhaustive: never = name;
-      throw new Error(`createEngine: unknown engine "${String(exhaustive)}"`);
+      throw new PolysearchError(`createEngine: unknown engine "${String(exhaustive)}"`);
     }
   }
 }
@@ -35,6 +36,8 @@ export type { SearchEngine } from './engine';
 export { ElasticsearchAdapter } from './engines/elasticsearch';
 export { OpenSearchAdapter } from './engines/opensearch';
 export { SolrAdapter } from './engines/solr';
+
+export { PolysearchError, FieldValidationError, EngineRequestError, TimeoutError } from './errors';
 
 export { compare, buildComparison, formatComparison, jaccard } from './compare';
 export type {

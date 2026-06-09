@@ -86,10 +86,21 @@ export interface SearchOptions {
   timeoutMs?: number;
 }
 
-/** Connection settings for an engine adapter. */
+/**
+ * Connection settings for an engine adapter.
+ *
+ * Auth differs by engine, which mirrors how the engines themselves differ:
+ * - `username`/`password` (basic auth) works for all three.
+ * - `apiKey` is an Elasticsearch feature (scoped, revocable, expiring service
+ *   auth) and takes precedence over basic auth on the Elasticsearch adapter. It
+ *   is ignored by OpenSearch and Solr, which have no native API-key concept
+ *   (OpenSearch uses basic auth or AWS SigV4; Solr uses basic auth).
+ */
 export interface EngineConfig {
   /** Base URL of the engine, e.g. http://localhost:9200 */
   node: string;
   username?: string;
   password?: string;
+  /** Elasticsearch API key. Preferred over basic auth on Elasticsearch; ignored elsewhere. */
+  apiKey?: string;
 }

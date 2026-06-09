@@ -38,11 +38,18 @@ export class ElasticsearchAdapter implements SearchEngine {
   private readonly client: Client;
 
   constructor(config: EngineConfig) {
+    // API keys are an Elasticsearch feature (scoped, revocable service auth) and
+    // take precedence over basic auth when supplied.
+    const auth =
+      config.apiKey !== undefined
+        ? { apiKey: config.apiKey }
+        : config.username !== undefined && config.password !== undefined
+          ? { username: config.username, password: config.password }
+          : undefined;
+
     this.client = new Client({
       node: config.node,
-      ...(config.username !== undefined && config.password !== undefined
-        ? { auth: { username: config.username, password: config.password } }
-        : {}),
+      ...(auth ? { auth } : {}),
     });
   }
 

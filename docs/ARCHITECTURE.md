@@ -164,14 +164,23 @@ production are explicit:
   string-built ones.
 - **Timeouts.** The Solr adapter wraps every `fetch` in `AbortSignal.timeout` so a hung
   connection cannot hang the caller. Retries with backoff are future work.
+- **Auth differs by engine, which mirrors how the engines differ.** All three adapters support
+  basic auth (`username`/`password`). Elasticsearch additionally supports **API keys** (its
+  native scoped, revocable, expiring service auth), preferred over basic auth when set.
+  OpenSearch and Solr have no native API-key concept, so `apiKey` is ignored there (OpenSearch
+  also supports AWS SigV4 for the managed service, not wired here). This is exactly the kind of
+  per-engine difference the project exists to surface.
 - **Local dev security is disabled on purpose.** The docker-compose engines run without TLS or
-  auth for convenience; this is a local-only setup, never a deployment artifact. The adapters
-  support basic auth and API keys for real deployments.
-- **Not hardened for untrusted input.** Resource limits on query size / deep pagination, and
-  validation of ingested documents, are intentionally out of scope for v1.
+  auth for convenience; this is a local-only setup, never a deployment artifact.
+- **Untrusted input is validated at the boundary.** The CLI validates schema and document files
+  before use (clear errors with line numbers) rather than asserting their shape. Resource limits
+  on query size / deep pagination are still out of scope for v1.
+- **Typed errors.** Everything polysearch throws extends `PolysearchError`
+  (`FieldValidationError`, `EngineRequestError`, `TimeoutError`), so callers can discriminate by
+  type instead of parsing messages.
 
 ## Out of scope for v1
 
 Semantic/vector search, facets and aggregations beyond top-K, autocomplete / did-you-mean /
-synonyms, cross-engine schema migration, and authentication beyond basic auth and API key.
-These are tracked as future work rather than half-built.
+synonyms, cross-engine schema migration, retries/backoff, and authentication beyond basic auth,
+the Elasticsearch API key, and AWS SigV4. These are tracked as future work rather than half-built.
