@@ -1,0 +1,27 @@
+# Local search engines for development and integration tests.
+#
+# Each engine sits behind its own compose profile so you can start just the one
+# you need (running all three at once is RAM-hungry):
+#
+#   docker compose --profile es up -d     # Elasticsearch only
+#   docker compose --profile all up -d    # everything (once OS and Solr are added)
+#
+# Security is disabled on purpose for local dev: no TLS, no passwords. Never run
+# a configuration like this anywhere but your own machine.
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: polysearch-es
+    profiles: ['es', 'all']
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - '9200:9200'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:9200/_cluster/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12

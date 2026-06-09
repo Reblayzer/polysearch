@@ -7,9 +7,10 @@ One `SearchEngine` interface across **Elasticsearch**, **OpenSearch** and **Solr
 unified Query DSL that compiles to each engine's native query, and a comparison mode that runs
 the same query across all three engines and reports the scoring and result-set differences.
 
-> **Status: in active development.** The interface and types are in place. Engine adapters,
-> the comparison mode and the CLI are landing incrementally (see [Roadmap](#roadmap)). The
-> `main` branch is kept green.
+> **Status: in active development.** The interface, the unified Query DSL and the
+> **Elasticsearch adapter** (with integration tests) are in place. The OpenSearch and Solr
+> adapters, the comparison mode and the CLI are landing incrementally (see
+> [Roadmap](#roadmap)). The `main` branch is kept green.
 
 ## Why
 
@@ -82,7 +83,9 @@ language. See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full design
 
 ## Quickstart
 
-> Adapters are not wired up yet, so this is the intended shape, not yet runnable end to end.
+> The Elasticsearch adapter works today; the OpenSearch and Solr adapters are not wired up
+> yet, so the cross-engine `compare` command is not runnable end to end. This shows the
+> intended CLI shape.
 
 ```bash
 # Spin up the engines locally
@@ -116,7 +119,7 @@ npm run test:integration   # RUN_INTEGRATION=1 vitest run
 ## Roadmap
 
 - [x] `SearchEngine` interface and unified Query DSL
-- [ ] Elasticsearch adapter + query translator
+- [x] Elasticsearch adapter + query translator (with integration tests)
 - [ ] OpenSearch adapter (with a note on where its API diverges from Elasticsearch)
 - [ ] Solr adapter (the most divergent query language)
 - [ ] `compare` mode: top-K overlap, score deltas, human-readable summary
