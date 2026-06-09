@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    /* Language + module target: modern Node 22, native ES modules. */
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+
+    /* Strictness: every safety flag on. This is what catches translator bugs
+       at compile time instead of at runtime against a live engine. */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+
+    /* We type-check only here; tsup (esbuild) does the actual emit. */
+    "noEmit": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    /* Quality-of-life. */
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["src", "test", "tsup.config.ts", "vitest.config.ts"]
+}
