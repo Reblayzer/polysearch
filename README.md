@@ -62,11 +62,11 @@ Primitives: `match` (full-text), `term` (exact), `bool` (must / should / must_no
 ## Architecture
 
 ```
-                 ┌───────────────────────────────┐
-   CLI / compare │     SearchEngine interface    │   everything depends on THIS
-                 │  createIndex bulkIndex search │
-                 │   explain deleteDocs dropIndex│
-                 └───────────────┬───────────────┘
+                 ┌────────────────────────────────┐
+   CLI / compare │     SearchEngine interface     │   everything depends on THIS
+                 │  createIndex bulkIndex search  │
+                 │  explain deleteDocs dropIndex  │
+                 └───────────────┬────────────────┘
                                  │ implemented by
             ┌────────────────────┼─────────────────────┐
             ▼                    ▼                     ▼
