@@ -28,11 +28,64 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
-      - name: Unit tests
-        run: npm test
+      - name: Unit tests (with coverage thresholds)
+        run: npm run test:coverage
 
       - name: Build
         run: npm run build
-    # Integration tests are intentionally NOT run here: they need live
-    # Elasticsearch/OpenSearch/Solr containers. They run locally via
-    # `npm run test:integration` against docker-compose.
+
+  # Integration tests against real engines. Elasticsearch and OpenSearch run as
+  # service containers here. Solr is left to local runs (`npm run
+  # test:integration`) because it needs the _default configset bind-mounted (see
+  # docker/solr-init.sh), which service containers can't do; the compare
+  # integration test also needs all three engines, so it stays local too.
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: 'false'
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9200:9200
+      opensearch:
+        image: opensearchproject/opensearch:2.15.0
+        env:
+          discovery.type: single-node
+          DISABLE_SECURITY_PLUGIN: 'true'
+          DISABLE_INSTALL_DEMO_CONFIG: 'true'
+          OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9201:9200
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wait for engines to be ready
+        run: |
+          for url in http://localhost:9200 http://localhost:9201; do
+            echo "waiting for $url"
+            for i in $(seq 1 40); do
+              if curl -fsS "$url" >/dev/null 2>&1; then echo "  ready"; break; fi
+              sleep 3
+            done
+          done
+
+      - name: Integration tests (Elasticsearch + OpenSearch)
+        env:
+          RUN_INTEGRATION: '1'
+          ES_NODE: http://localhost:9200
+          OS_NODE: http://localhost:9201
+        run: >-
+          npx vitest run
+          test/integration/elasticsearch.test.ts
+          test/integration/opensearch.test.ts

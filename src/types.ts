@@ -103,4 +103,10 @@ export interface EngineConfig {
   password?: string;
   /** Elasticsearch API key. Preferred over basic auth on Elasticsearch; ignored elsewhere. */
   apiKey?: string;
+  /**
+   * Default client-side request timeout in milliseconds, so a hung connection
+   * cannot hang the caller. Defaults to 30000. Per-search timeouts can be set
+   * with `SearchOptions.timeoutMs`.
+   */
+  timeoutMs?: number;
 }

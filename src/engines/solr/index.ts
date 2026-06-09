@@ -66,10 +66,12 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 export class SolrAdapter implements SearchEngine {
   private readonly baseUrl: string;
   private readonly authHeader: string | undefined;
+  private readonly defaultTimeoutMs: number;
 
   constructor(config: EngineConfig) {
     // e.g. http://localhost:8983/solr
     this.baseUrl = config.node.replace(/\/+$/, '');
+    this.defaultTimeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.authHeader =
       config.username !== undefined && config.password !== undefined
         ? `Basic ${Buffer.from(`${config.username}:${config.password}`).toString('base64')}`
@@ -82,7 +84,7 @@ export class SolrAdapter implements SearchEngine {
 
     // Native fetch has no default timeout; without this an unresponsive Solr
     // would hang the caller indefinitely.
-    const timeoutMs = init?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const timeoutMs = init?.timeoutMs ?? this.defaultTimeoutMs;
     const fetchInit: RequestInit = { headers, signal: AbortSignal.timeout(timeoutMs) };
     if (init?.method !== undefined) fetchInit.method = init.method;
     if (init?.body !== undefined) fetchInit.body = init.body;

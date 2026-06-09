@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-09
+
+Configurable timeouts, a coverage threshold, and integration tests in CI.
+
+### Added
+
+- **Configurable, consistent timeouts.** `EngineConfig.timeoutMs` sets the default client-side
+  request timeout for any adapter (Solr previously hardcoded 30s). A per-search
+  `SearchOptions.timeoutMs` now also bounds the wait on the client side for Elasticsearch and
+  OpenSearch (via the client `requestTimeout`), not just as a server hint, so timeout behaviour
+  is consistent across all three adapters.
+- **Test coverage threshold.** `npm run test:coverage` enforces coverage thresholds on the pure,
+  unit-tested logic (translators, compare maths, errors, validation); the engine adapters and CLI
+  wiring are excluded because they are covered by the integration tests.
+- **Integration tests in CI.** The Elasticsearch and OpenSearch integration tests now run in CI
+  against service containers. Solr's stays local (it needs the `_default` configset bind-mounted),
+  as does the cross-engine compare test (it needs all three engines).
+
+[0.3.0]: https://github.com/Reblayzer/polysearch/releases/tag/v0.3.0
+
 ## [0.2.0] - 2026-06-09
 
 Best-practices pass: typed errors, input validation, and accurate per-engine auth.

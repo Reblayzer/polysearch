@@ -91,8 +91,11 @@ narrow keeps the translators honest and the leak surface small.
 - **`unknown`, not `any`, for document field values.** Callers must narrow before use, which
   keeps the boundary between "data from an engine" and "typed code" explicit.
 - **Integration tests gated behind an env var.** Unit tests (translators, pure logic) run on
-  every push in CI with no infrastructure. Integration tests need live engines, so they run
-  locally against docker-compose and stay out of the default CI path.
+  every push with no infrastructure, and the pure logic is held to a coverage threshold. The
+  Elasticsearch and OpenSearch integration tests run in CI against service containers; Solr's
+  integration test stays local because it needs the `_default` configset bind-mounted (see
+  `docker/solr-init.sh`), which CI service containers can't do, and the cross-engine compare test
+  needs all three engines, so it stays local too.
 - **CLI-only for v1.** The comparison output is text designed to be readable and pasteable. A
   web UI is explicitly deferred.
 
@@ -162,8 +165,11 @@ production are explicit:
   applied across all engines so a query is valid everywhere or rejected everywhere, and query
   values are escaped. This is a concrete example of why structured queries are safer than
   string-built ones.
-- **Timeouts.** The Solr adapter wraps every `fetch` in `AbortSignal.timeout` so a hung
-  connection cannot hang the caller. Retries with backoff are future work.
+- **Timeouts.** Every adapter has a client-side request timeout so a hung connection cannot hang
+  the caller: the Solr adapter wraps `fetch` in `AbortSignal.timeout`, and the Elasticsearch and
+  OpenSearch adapters set the client `requestTimeout`. The default is configurable via
+  `EngineConfig.timeoutMs`, and a per-search `SearchOptions.timeoutMs` bounds the wait on both the
+  client and the server. Retries with backoff are future work.
 - **Auth differs by engine, which mirrors how the engines differ.** All three adapters support
   basic auth (`username`/`password`). Elasticsearch additionally supports **API keys** (its
   native scoped, revocable, expiring service auth), preferred over basic auth when set.

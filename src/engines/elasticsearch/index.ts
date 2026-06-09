@@ -50,6 +50,9 @@ export class ElasticsearchAdapter implements SearchEngine {
     this.client = new Client({
       node: config.node,
       ...(auth ? { auth } : {}),
+      // Client-side request timeout (the client already defaults to 30s; this
+      // lets callers configure it).
+      ...(config.timeoutMs !== undefined ? { requestTimeout: config.timeoutMs } : {}),
     });
   }
 
@@ -95,11 +98,17 @@ export class ElasticsearchAdapter implements SearchEngine {
   }
 
   async search(index: string, query: Query, opts?: SearchOptions): Promise<SearchResult> {
-    const response = await this.client.search({
-      index,
-      ...buildSearchBody(query),
-      ...(opts?.timeoutMs !== undefined ? { timeout: `${opts.timeoutMs}ms` } : {}),
-    });
+    const response = await this.client.search(
+      {
+        index,
+        ...buildSearchBody(query),
+        // `timeout` is the server-side search time budget.
+        ...(opts?.timeoutMs !== undefined ? { timeout: `${opts.timeoutMs}ms` } : {}),
+      },
+      // `requestTimeout` is the client-side abort, so a per-call timeout bounds
+      // the wait on both sides.
+      opts?.timeoutMs !== undefined ? { requestTimeout: opts.timeoutMs } : undefined,
+    );
     return mapSearchResponse(response);
   }
 

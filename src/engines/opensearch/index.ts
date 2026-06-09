@@ -88,6 +88,7 @@ export class OpenSearchAdapter implements SearchEngine {
       ...(config.username !== undefined && config.password !== undefined
         ? { auth: { username: config.username, password: config.password } }
         : {}),
+      ...(config.timeoutMs !== undefined ? { requestTimeout: config.timeoutMs } : {}),
     });
   }
 
@@ -134,11 +135,15 @@ export class OpenSearchAdapter implements SearchEngine {
   }
 
   async search(index: string, query: Query, opts?: SearchOptions): Promise<SearchResult> {
-    const response = await this.client.search({
-      index,
-      body: toOsBody(buildSearchBody(query)),
-      ...(opts?.timeoutMs !== undefined ? { timeout: `${opts.timeoutMs}ms` } : {}),
-    });
+    const response = await this.client.search(
+      {
+        index,
+        body: toOsBody(buildSearchBody(query)),
+        ...(opts?.timeoutMs !== undefined ? { timeout: `${opts.timeoutMs}ms` } : {}),
+      },
+      // Client-side abort, so a per-call timeout bounds the wait on both sides.
+      opts?.timeoutMs !== undefined ? { requestTimeout: opts.timeoutMs } : undefined,
+    );
 
     const body = response.body;
     const totalRaw = body.hits.total;
