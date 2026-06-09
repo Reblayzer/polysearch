@@ -7,10 +7,10 @@ One `SearchEngine` interface across **Elasticsearch**, **OpenSearch** and **Solr
 unified Query DSL that compiles to each engine's native query, and a comparison mode that runs
 the same query across all three engines and reports the scoring and result-set differences.
 
-> **Status: in active development.** The interface, the unified Query DSL and all three engine
-> adapters (**Elasticsearch, OpenSearch, Solr**, with integration tests) are in place. The
-> comparison mode and the CLI are landing next (see [Roadmap](#roadmap)). The `main` branch is
-> kept green.
+> **Status: v1 feature-complete.** All three engine adapters (**Elasticsearch, OpenSearch,
+> Solr**), the unified Query DSL, the `compare` mode and the CLI are in place, with unit and
+> integration tests. The `main` branch is kept green. See the [Roadmap](#roadmap) for what is
+> intentionally out of scope.
 
 ## Why
 
@@ -72,11 +72,14 @@ Primitives: `match` (full-text), `term` (exact), `bool` (must / should / must_no
             ▼                    ▼                     ▼
      ElasticsearchAdapter   OpenSearchAdapter     SolrAdapter
             │                    │                     │
-   @elastic/elasticsearch  @opensearch-project    solr-client
+   @elastic/elasticsearch  @opensearch-project    native fetch (HTTP/JSON)
             │                    │                     │
             ▼                    ▼                     ▼
        ES container         OS container          Solr container
 ```
+
+The Elasticsearch and OpenSearch adapters use their official clients; the Solr adapter talks to
+Solr's HTTP/JSON API directly with `fetch`, so it has no third-party runtime dependency.
 
 A unified `Query` is compiled by each adapter's translator into that engine's native query
 language. See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full design.
@@ -112,19 +115,28 @@ Comparison across es, os, solr (top 10)
 
 Top-K overlap (Jaccard):
   es vs os: 1.00
-  es vs solr: 0.75
-  os vs solr: 0.75
-  shared by all: 1, 3, 5
+  es vs solr: 1.00
+  os vs solr: 1.00
+  shared by all: 1, 3, 5, 7, 2, 4, 6, 8
 
 doc  es         os         solr
 ---  ---------  ---------  ---------
-1    #1 (1.42)  #1 (1.42)  #1 (0.81)
-3    #2 (0.69)  #2 (0.69)  #3 (0.32)
-5    #3 (0.69)  #3 (0.69)  #2 (0.32)
+1    #1 (1.19)  #1 (1.19)  #1 (0.54)
+3    #2 (0.69)  #2 (0.69)  #2 (0.32)
+5    #3 (0.69)  #3 (0.69)  #3 (0.32)
+7    #4 (0.69)  #4 (0.69)  #4 (0.32)
+2    #5 (0.49)  #5 (0.49)  #5 (0.22)
+4    #6 (0.49)  #6 (0.49)  #6 (0.22)
+6    #7 (0.49)  #7 (0.49)  #7 (0.22)
+8    #8 (0.49)  #8 (0.49)  #8 (0.22)
 ```
 
-(Illustrative shape: "Table lamp BORRE" matches both terms so it leads everywhere, while the
-single-term matches can reorder between engines.)
+"Table lamp BORRE" (doc 1) is the only document matching both terms, so it leads on every
+engine. Note the scores: Elasticsearch and OpenSearch agree (they share a query language), while
+Solr's are roughly half, which is exactly why `compare` reports rank overlap and per-engine
+placement rather than pretending the raw scores are equal. On this small, clean corpus the three
+engines also agree on the ordering; on noisier real data the rankings diverge, and the table is
+where you see it.
 
 ## Development
 
