@@ -20,6 +20,7 @@
  * here, because Solr's equivalent (`mm`) belongs to the edismax parser.
  */
 import type { BoolQuery, QueryClause, RangeQuery } from './types';
+import { assertValidFieldName } from './field';
 
 /** The Solr-shaped query: a main `q` string and zero or more `fq` filters. */
 export interface SolrQuery {
@@ -72,10 +73,13 @@ function renderRange(clause: RangeQuery): string {
 function renderClause(clause: QueryClause, fq: string[]): string {
   switch (clause.type) {
     case 'match':
+      assertValidFieldName(clause.field);
       return `${clause.field}:(${escapeValue(clause.value)})`;
     case 'term':
+      assertValidFieldName(clause.field);
       return `${clause.field}:${renderTermValue(clause.value)}`;
     case 'range':
+      assertValidFieldName(clause.field);
       return `${clause.field}:${renderRange(clause)}`;
     case 'bool':
       return renderBool(clause, fq);

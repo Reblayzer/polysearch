@@ -37,7 +37,13 @@ export { OpenSearchAdapter } from './engines/opensearch';
 export { SolrAdapter } from './engines/solr';
 
 export { compare, buildComparison, formatComparison, jaccard } from './compare';
-export type { NamedEngine, EngineResult, DocumentComparison, ComparisonResult } from './compare';
+export type {
+  NamedEngine,
+  EngineResult,
+  DocumentComparison,
+  EngineFailure,
+  ComparisonResult,
+} from './compare';
 
 export type {
   BulkResult,

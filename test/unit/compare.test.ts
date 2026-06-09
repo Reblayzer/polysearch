@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { buildComparison, formatComparison, jaccard, type EngineResult } from '../../src/compare';
+import {
+  buildComparison,
+  compare,
+  formatComparison,
+  jaccard,
+  type EngineResult,
+} from '../../src/compare';
+import type { SearchEngine } from '../../src/engine';
+
+/** A SearchEngine whose `search` is supplied; the rest are inert stubs. */
+function stubEngine(search: SearchEngine['search']): SearchEngine {
+  return {
+    search,
+    createIndex: () => Promise.resolve(),
+    bulkIndex: () => Promise.resolve({ indexed: 0, errors: [] }),
+    explain: () => Promise.resolve({ id: '', matched: false, score: 0, detail: '' }),
+    deleteDocs: () => Promise.resolve(),
+    dropIndex: () => Promise.resolve(),
+  };
+}
 
 describe('jaccard', () => {
   it('is 1 for identical sets and 0 for disjoint sets', () => {
@@ -65,6 +84,46 @@ describe('buildComparison', () => {
     const result = buildComparison(perEngine, 3);
     // doc 1 (best rank 1) and doc 2 (best rank 1) lead; ties broken by id.
     expect(result.documents.map((d) => d.id)).toEqual(['1', '2', '3', '9']);
+  });
+});
+
+describe('compare graceful degradation', () => {
+  const query = { where: { type: 'match', field: 'title', value: 'lamp' } } as const;
+
+  it('proceeds with responding engines and records the failures', async () => {
+    const good = stubEngine(() =>
+      Promise.resolve({
+        total: 1,
+        tookMs: 1,
+        hits: [{ id: '1', score: 1.2, source: {} }],
+      }),
+    );
+    const bad = stubEngine(() => {
+      throw new Error('connection refused');
+    });
+
+    const result = await compare(
+      [
+        { name: 'es', engine: good },
+        { name: 'solr', engine: bad },
+      ],
+      'products',
+      query,
+    );
+
+    expect(result.engines).toEqual(['es']);
+    expect(result.failures).toEqual([{ engine: 'solr', error: 'connection refused' }]);
+    expect(result.documents.map((d) => d.id)).toContain('1');
+    expect(formatComparison(result)).toContain('Engines that did not respond');
+  });
+
+  it('carries failures through buildComparison', () => {
+    const result = buildComparison(
+      [{ engine: 'es', total: 1, hits: [{ id: '1', score: 1, rank: 1 }] }],
+      5,
+      [{ engine: 'solr', error: 'down' }],
+    );
+    expect(result.failures).toEqual([{ engine: 'solr', error: 'down' }]);
   });
 });
 

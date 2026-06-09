@@ -146,10 +146,29 @@ otherwise would be dishonest. The known leaks:
   are lifted to the top level. Equivalent for the common AND-of-filters case, an approximation
   for exotic nesting.
 - **Scores are not comparable across engines**: even for "the same" query, the raw BM25 score
-  differs between engines. This is exactly why the upcoming `compare` mode reports rank overlap
-  and per-document deltas rather than pretending the numbers are equal.
+  differs between engines. This is exactly why the `compare` mode reports rank overlap and
+  per-document rank/score rather than pretending the numbers are equal.
 
 Documenting these precisely is a goal of the project, not an embarrassment to hide.
+
+## Security notes
+
+This is a demonstrator, so it trusts its inputs, but the boundaries that would matter in
+production are explicit:
+
+- **Query construction.** Elasticsearch and OpenSearch take structured JSON, so field names are
+  keys and cannot inject. Solr builds a Lucene query string, which is an injection surface, so
+  field names are validated against a conservative identifier pattern (`src/query/field.ts`),
+  applied across all engines so a query is valid everywhere or rejected everywhere, and query
+  values are escaped. This is a concrete example of why structured queries are safer than
+  string-built ones.
+- **Timeouts.** The Solr adapter wraps every `fetch` in `AbortSignal.timeout` so a hung
+  connection cannot hang the caller. Retries with backoff are future work.
+- **Local dev security is disabled on purpose.** The docker-compose engines run without TLS or
+  auth for convenience; this is a local-only setup, never a deployment artifact. The adapters
+  support basic auth and API keys for real deployments.
+- **Not hardened for untrusted input.** Resource limits on query size / deep pagination, and
+  validation of ingested documents, are intentionally out of scope for v1.
 
 ## Out of scope for v1
 

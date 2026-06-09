@@ -13,15 +13,19 @@
  */
 import type { estypes } from '@elastic/elasticsearch';
 import type { BoolQuery, Query, QueryClause, RangeQuery } from './types';
+import { assertValidFieldName } from './field';
 
 /** Translate a single query clause into an Elasticsearch query container. */
 export function translateClause(clause: QueryClause): estypes.QueryDslQueryContainer {
   switch (clause.type) {
     case 'match':
+      assertValidFieldName(clause.field);
       return { match: { [clause.field]: { query: clause.value } } };
     case 'term':
+      assertValidFieldName(clause.field);
       return { term: { [clause.field]: { value: clause.value } } };
     case 'range':
+      assertValidFieldName(clause.field);
       return { range: { [clause.field]: translateRange(clause) } };
     case 'bool':
       return { bool: translateBool(clause) };
@@ -69,12 +73,16 @@ export function buildSearchBody(query: Query): estypes.SearchRequest {
   if (query.size !== undefined) body.size = query.size;
 
   if (query.sort) {
-    body.sort = query.sort.map((s) => ({ [s.field]: { order: s.order } }));
+    body.sort = query.sort.map((s) => {
+      assertValidFieldName(s.field);
+      return { [s.field]: { order: s.order } };
+    });
   }
 
   if (query.highlight) {
     const fields: Record<string, estypes.SearchHighlightField> = {};
     for (const field of query.highlight.fields) {
+      assertValidFieldName(field);
       fields[field] = {};
     }
     const highlight: estypes.SearchHighlight = { fields };

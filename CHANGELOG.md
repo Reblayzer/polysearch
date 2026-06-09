@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-06-09
+
+Security and robustness hardening, from an adversarial review of the codebase.
+
+### Fixed
+
+- **Query injection**: field names are now validated across all engines
+  (`src/query/field.ts`), closing a Lucene query-injection vector in the Solr translator, where
+  field names were interpolated into the query string (values were already escaped). Field names
+  are restricted to a conservative identifier pattern and rejected everywhere if invalid.
+
+### Added
+
+- A client-side request timeout on the Solr adapter (`AbortSignal.timeout`), so a hung connection
+  can no longer hang the caller.
+
+### Changed
+
+- `compare` now uses `Promise.allSettled`: one unreachable engine no longer fails the whole
+  comparison. The engines that responded are compared, and the rest are reported in a new
+  `failures` field on `ComparisonResult` (and printed by `formatComparison`).
+
+[0.1.1]: https://github.com/Reblayzer/polysearch/releases/tag/v0.1.1
+
 ## [0.1.0] - 2026-06-09
 
 First release. One interface across three search engines, plus a comparison mode and a CLI.

@@ -25,6 +25,7 @@ import type {
 } from '../../types';
 import type { Query } from '../../query/types';
 import { toSolrQuery } from '../../query/solr';
+import { assertValidFieldName } from '../../query/field';
 
 /** Our neutral field types mapped to Solr field types. */
 const FIELD_TYPE_TO_SOLR: Record<FieldType, string> = {
@@ -55,7 +56,11 @@ interface SolrRequestInit {
   method?: string;
   body?: string;
   headers?: Record<string, string>;
+  timeoutMs?: number;
 }
+
+/** Default client-side request timeout, so a hung connection can't hang the caller. */
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 export class SolrAdapter implements SearchEngine {
   private readonly baseUrl: string;
@@ -74,11 +79,22 @@ export class SolrAdapter implements SearchEngine {
     const headers: Record<string, string> = { ...(init?.headers ?? {}) };
     if (this.authHeader) headers.Authorization = this.authHeader;
 
-    const fetchInit: RequestInit = { headers };
+    // Native fetch has no default timeout; without this an unresponsive Solr
+    // would hang the caller indefinitely.
+    const timeoutMs = init?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const fetchInit: RequestInit = { headers, signal: AbortSignal.timeout(timeoutMs) };
     if (init?.method !== undefined) fetchInit.method = init.method;
     if (init?.body !== undefined) fetchInit.body = init.body;
 
-    const res = await fetch(`${this.baseUrl}${path}`, fetchInit);
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}${path}`, fetchInit);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'TimeoutError') {
+        throw new Error(`Solr request timed out after ${timeoutMs}ms: ${path}`);
+      }
+      throw err;
+    }
     if (!res.ok) {
       const detail = await res.text();
       throw new Error(`Solr request failed (${res.status}) ${path}: ${detail}`);
@@ -149,9 +165,11 @@ export class SolrAdapter implements SearchEngine {
     if (query.from !== undefined) params.set('start', String(query.from));
     if (query.size !== undefined) params.set('rows', String(query.size));
     if (query.sort) {
+      for (const s of query.sort) assertValidFieldName(s.field);
       params.set('sort', query.sort.map((s) => `${s.field} ${s.order}`).join(', '));
     }
     if (query.highlight) {
+      for (const field of query.highlight.fields) assertValidFieldName(field);
       params.set('hl', 'true');
       params.set('hl.fl', query.highlight.fields.join(','));
       // Cover both the unified (hl.tag.*) and original (hl.simple.*) highlighters.
@@ -168,6 +186,7 @@ export class SolrAdapter implements SearchEngine {
 
     const data = await this.request<SolrSelectResponse>(
       `/${encodeURIComponent(index)}/select?${params.toString()}`,
+      opts?.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : undefined,
     );
     return mapSelectResponse(data);
   }

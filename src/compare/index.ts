@@ -34,6 +34,12 @@ export interface DocumentComparison {
   presentInAll: boolean;
 }
 
+/** An engine that failed to respond during a comparison. */
+export interface EngineFailure {
+  engine: string;
+  error: string;
+}
+
 export interface ComparisonResult {
   engines: string[];
   topK: number;
@@ -45,6 +51,8 @@ export interface ComparisonResult {
     /** Jaccard similarity of top-K sets, keyed "engineA|engineB". */
     pairwiseJaccard: Record<string, number>;
   };
+  /** Engines that did not respond. The comparison proceeds with the rest. */
+  failures: EngineFailure[];
 }
 
 /** Jaccard similarity of two sets: |A ∩ B| / |A ∪ B| (1 when both are empty). */
@@ -57,7 +65,11 @@ export function jaccard(a: Set<string>, b: Set<string>): number {
 }
 
 /** Pure core: turn per-engine top-K results into a structured comparison. */
-export function buildComparison(perEngine: EngineResult[], topK: number): ComparisonResult {
+export function buildComparison(
+  perEngine: EngineResult[],
+  topK: number,
+  failures: EngineFailure[] = [],
+): ComparisonResult {
   const engineNames = perEngine.map((e) => e.engine);
 
   const placement = new Map<string, Map<string, { rank: number; score: number }>>();
@@ -103,6 +115,7 @@ export function buildComparison(perEngine: EngineResult[], topK: number): Compar
     perEngine,
     documents,
     overlap: { sharedByAll, pairwiseJaccard },
+    failures,
   };
 }
 
@@ -115,14 +128,19 @@ function bestRank(doc: DocumentComparison): number {
   return best;
 }
 
-/** Run one query across several engines and build the comparison. */
+/**
+ * Run one query across several engines and build the comparison. Uses
+ * allSettled so a single unreachable engine does not fail the whole run: the
+ * comparison proceeds with the engines that responded, and the rest are reported
+ * in `failures`.
+ */
 export async function compare(
   engines: NamedEngine[],
   index: string,
   query: Query,
   topK = 10,
 ): Promise<ComparisonResult> {
-  const perEngine = await Promise.all(
+  const settled = await Promise.allSettled(
     engines.map(async ({ name, engine }): Promise<EngineResult> => {
       const result = await engine.search(index, { ...query, size: topK });
       return {
@@ -132,7 +150,23 @@ export async function compare(
       };
     }),
   );
-  return buildComparison(perEngine, topK);
+
+  const perEngine: EngineResult[] = [];
+  const failures: EngineFailure[] = [];
+  settled.forEach((outcome, i) => {
+    if (outcome.status === 'fulfilled') {
+      perEngine.push(outcome.value);
+    } else {
+      const name = engines[i]?.name ?? `engine-${i}`;
+      const reason: unknown = outcome.reason;
+      failures.push({
+        engine: name,
+        error: reason instanceof Error ? reason.message : String(reason),
+      });
+    }
+  });
+
+  return buildComparison(perEngine, topK, failures);
 }
 
 /** Render a comparison as a human-readable table, suitable for pasting into a review. */
@@ -140,6 +174,14 @@ export function formatComparison(result: ComparisonResult): string {
   const lines: string[] = [];
   lines.push(`Comparison across ${result.engines.join(', ')} (top ${result.topK})`);
   lines.push('');
+
+  if (result.failures.length > 0) {
+    lines.push('Engines that did not respond:');
+    for (const failure of result.failures) {
+      lines.push(`  ${failure.engine}: ${failure.error}`);
+    }
+    lines.push('');
+  }
 
   lines.push('Top-K overlap (Jaccard):');
   const pairs = Object.entries(result.overlap.pairwiseJaccard);
