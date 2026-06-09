@@ -83,20 +83,48 @@ language. See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full design
 
 ## Quickstart
 
-> All three engine adapters work today. The `index` and `search` operations are real; the
-> `compare` command lands next. This shows the intended CLI shape.
-
 ```bash
 # Spin up the engines locally (each engine has its own profile; `all` starts
-# every engine, which is RAM-hungry). Examples:
-docker compose --profile es up -d     # Elasticsearch only
-docker compose --profile all up -d    # all engines
+# every engine, which is RAM-hungry).
+docker compose --profile all up -d
 
-# Index a product corpus, search one engine, compare all three
-polysearch index   --engine es   --index products --file products.ndjson
-polysearch search  --engine os   --index products --q "table lamp"
-polysearch compare --index products --q "table lamp" --engines es,os,solr
+npm install && npm run build
+
+# Index the example corpus into each engine (the schema creates the index/core)
+node dist/cli/index.js index --engine es   --index products \
+  --file examples/products.ndjson --schema examples/schema.json
+node dist/cli/index.js index --engine os   --index products \
+  --file examples/products.ndjson --schema examples/schema.json
+node dist/cli/index.js index --engine solr --index products \
+  --file examples/products.ndjson --schema examples/schema.json
+
+# Search one engine, then compare the same query across all three
+node dist/cli/index.js search  --engine os --index products --q "table lamp"
+node dist/cli/index.js compare --index products --q "table lamp" --engines es,os,solr
 ```
+
+`compare` runs the same query across the engines and reports how they differ. It does not
+compare raw scores (BM25 scores are not comparable across engines); it reports rank overlap and
+each document's rank and score per engine:
+
+```
+Comparison across es, os, solr (top 10)
+
+Top-K overlap (Jaccard):
+  es vs os: 1.00
+  es vs solr: 0.75
+  os vs solr: 0.75
+  shared by all: 1, 3, 5
+
+doc  es         os         solr
+---  ---------  ---------  ---------
+1    #1 (1.42)  #1 (1.42)  #1 (0.81)
+3    #2 (0.69)  #2 (0.69)  #3 (0.32)
+5    #3 (0.69)  #3 (0.69)  #2 (0.32)
+```
+
+(Illustrative shape: "Table lamp BORRE" matches both terms so it leads everywhere, while the
+single-term matches can reorder between engines.)
 
 ## Development
 
@@ -123,10 +151,11 @@ npm run test:integration   # RUN_INTEGRATION=1 vitest run
 - [x] Elasticsearch adapter + query translator (with integration tests)
 - [x] OpenSearch adapter (shared query DSL; diverges only in client transport)
 - [x] Solr adapter (its own `q`/`fq` query model and core/schema management)
-- [ ] `compare` mode: top-K overlap, score deltas, human-readable summary
-- [ ] CLI: `index`, `search`, `compare`, `explain`
-- [ ] docker-compose for all three engines + integration test suite
-- [ ] "Where the abstraction leaks" section, documenting the honest limits
+- [x] `compare` mode: top-K overlap (Jaccard), per-document rank/score, readable table
+- [x] CLI: `index`, `search`, `compare`, `explain`
+- [x] docker-compose for all three engines + integration test suite
+- [x] "Where the abstraction leaks" section, documenting the honest limits (see
+      [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md))
 
 Out of scope for v1: semantic/vector search, facets/aggregations, autocomplete and synonyms,
 cross-engine schema migration, and a web UI for the comparison output.

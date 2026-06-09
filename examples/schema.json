@@ -1,0 +1,9 @@
+{
+  "fields": {
+    "title": { "type": "text" },
+    "description": { "type": "text" },
+    "category": { "type": "keyword" },
+    "price": { "type": "float" },
+    "discontinued": { "type": "boolean" }
+  }
+}

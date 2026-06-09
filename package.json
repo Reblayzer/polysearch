@@ -29,7 +29,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "rm -rf dist && tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "@elastic/elasticsearch": "^8.19.1",
-    "@opensearch-project/opensearch": "^3.6.0"
+    "@opensearch-project/opensearch": "^3.6.0",
+    "commander": "^15.0.0"
   }
 }
