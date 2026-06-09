@@ -50,3 +50,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+
+  solr:
+    image: solr:9.6
+    container_name: polysearch-solr
+    profiles: ['solr', 'all']
+    ports:
+      - '8983:8983'
+    # Make the bundled _default configset available to the CoreAdmin CREATE API
+    # (see the script) so dynamically-created cores work.
+    volumes:
+      - ./docker/solr-init.sh:/docker-entrypoint-initdb.d/copy-configset.sh:ro
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'curl -fsS "http://localhost:8983/solr/admin/cores?action=STATUS" || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12

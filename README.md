@@ -7,10 +7,10 @@ One `SearchEngine` interface across **Elasticsearch**, **OpenSearch** and **Solr
 unified Query DSL that compiles to each engine's native query, and a comparison mode that runs
 the same query across all three engines and reports the scoring and result-set differences.
 
-> **Status: in active development.** The interface, the unified Query DSL and the
-> **Elasticsearch and OpenSearch adapters** (with integration tests) are in place. The Solr
-> adapter, the comparison mode and the CLI are landing incrementally (see [Roadmap](#roadmap)).
-> The `main` branch is kept green.
+> **Status: in active development.** The interface, the unified Query DSL and all three engine
+> adapters (**Elasticsearch, OpenSearch, Solr**, with integration tests) are in place. The
+> comparison mode and the CLI are landing next (see [Roadmap](#roadmap)). The `main` branch is
+> kept green.
 
 ## Why
 
@@ -83,9 +83,8 @@ language. See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full design
 
 ## Quickstart
 
-> The Elasticsearch and OpenSearch adapters work today; the Solr adapter is not wired up yet,
-> so the cross-engine `compare` command is not runnable across all three end to end. This shows
-> the intended CLI shape.
+> All three engine adapters work today. The `index` and `search` operations are real; the
+> `compare` command lands next. This shows the intended CLI shape.
 
 ```bash
 # Spin up the engines locally (each engine has its own profile; `all` starts
@@ -123,7 +122,7 @@ npm run test:integration   # RUN_INTEGRATION=1 vitest run
 - [x] `SearchEngine` interface and unified Query DSL
 - [x] Elasticsearch adapter + query translator (with integration tests)
 - [x] OpenSearch adapter (shared query DSL; diverges only in client transport)
-- [ ] Solr adapter (the most divergent query language)
+- [x] Solr adapter (its own `q`/`fq` query model and core/schema management)
 - [ ] `compare` mode: top-K overlap, score deltas, human-readable summary
 - [ ] CLI: `index`, `search`, `compare`, `explain`
 - [ ] docker-compose for all three engines + integration test suite

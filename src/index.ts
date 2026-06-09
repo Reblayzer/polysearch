@@ -10,6 +10,7 @@ import type { EngineConfig, EngineName } from './types';
 import type { SearchEngine } from './engine';
 import { ElasticsearchAdapter } from './engines/elasticsearch';
 import { OpenSearchAdapter } from './engines/opensearch';
+import { SolrAdapter } from './engines/solr';
 
 /**
  * Build an engine adapter by name. This is the one place callers pick a backend;
@@ -22,9 +23,7 @@ export function createEngine(name: EngineName, config: EngineConfig): SearchEngi
     case 'opensearch':
       return new OpenSearchAdapter(config);
     case 'solr':
-      throw new Error(
-        `createEngine: the "${name}" adapter is not implemented yet. It lands later in the build.`,
-      );
+      return new SolrAdapter(config);
     default: {
       const exhaustive: never = name;
       throw new Error(`createEngine: unknown engine "${String(exhaustive)}"`);
@@ -35,6 +34,7 @@ export function createEngine(name: EngineName, config: EngineConfig): SearchEngi
 export type { SearchEngine } from './engine';
 export { ElasticsearchAdapter } from './engines/elasticsearch';
 export { OpenSearchAdapter } from './engines/opensearch';
+export { SolrAdapter } from './engines/solr';
 
 export type {
   BulkResult,

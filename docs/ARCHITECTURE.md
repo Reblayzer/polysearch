@@ -116,12 +116,39 @@ This is the clearest demonstration of why the interface earns its keep: two engi
 nearly identical at the query level still differ enough at the client level that a caller should
 not have to care.
 
-## Where the abstraction will leak
+## Solr is the divergent one
+
+Where Elasticsearch and OpenSearch share a query language, Solr is genuinely different and has
+its own translator (`src/query/solr.ts`):
+
+- **Query model**: Solr takes a `q` string in Lucene query syntax plus `fq` filter params,
+  not a JSON bool tree. The unified `bool` maps to `+`/`-`/unprefixed terms in `q` (must /
+  must_not / should) with `filter` clauses pushed to `fq`. Ranges map to `[a TO b]` / `{a TO b}`
+  bracket syntax.
+- **Index management**: Solr's unit is a core, created via the CoreAdmin API and configured via
+  the Schema API, versus a single JSON mappings call for ES/OS.
+- **Client**: Solr's API is plain HTTP/JSON, so the adapter uses native `fetch` rather than the
+  unmaintained `solr-client` package. The Solr adapter has zero third-party runtime
+  dependencies.
+
+## Where the abstraction leaks
 
 A thin abstraction over three genuinely different engines cannot be perfect, and pretending
-otherwise would be dishonest. As the adapters land, this section will catalogue the specific
-places the abstraction leaks (for example: Solr's query-parser model versus the JSON DSL of
-the other two, differences in highlighting configuration, and per-engine scoring defaults).
+otherwise would be dishonest. The known leaks:
+
+- **`minimumShouldMatch`** is honoured by the Elasticsearch and OpenSearch adapters but not by
+  Solr's translator, because Solr's equivalent (`mm`) belongs to the edismax parser. A query
+  relying on it behaves differently on Solr.
+- **Bulk error granularity**: Elasticsearch and OpenSearch report per-document bulk errors. A
+  single Solr update request is all-or-nothing, so the Solr adapter's `BulkResult.errors` is
+  coarser.
+- **Nested filters**: `bool.filter` maps to Solr's top-level `fq`, so filters on a nested `bool`
+  are lifted to the top level. Equivalent for the common AND-of-filters case, an approximation
+  for exotic nesting.
+- **Scores are not comparable across engines**: even for "the same" query, the raw BM25 score
+  differs between engines. This is exactly why the upcoming `compare` mode reports rank overlap
+  and per-document deltas rather than pretending the numbers are equal.
+
 Documenting these precisely is a goal of the project, not an embarrassment to hide.
 
 ## Out of scope for v1
