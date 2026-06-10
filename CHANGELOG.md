@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-06-10
+
+The two intentional follow-ups from 0.5.0 — the CLI `suggest` command and the README
+documentation for the suggest API — plus a stale-version fix.
+
+### Added
+
+- **CLI `suggest` command** — prefix autocomplete from the command line, mirroring the other
+  commands: `polysearch suggest --engine es --index products --prefix "table la"` (`--field`
+  defaults to `title`, `--size` to 10).
+- **README**: the interface section now documents all seven methods (it still said six), a new
+  "Autocomplete (`suggest`)" section explains the prefix-matching design and the
+  Elasticsearch/OpenSearch-vs-Solr divergence, the architecture diagram and Quickstart include
+  `suggest`, and the roadmap no longer lists shipped features (autocomplete, the web UI) as out
+  of scope.
+
+### Fixed
+
+- **CLI `--version`** printed a hardcoded `0.1.0`. The version is now imported from
+  `package.json` at build time (inlined by the bundler), so it cannot drift again.
+- The lockfiles recorded stale package versions (`0.2.0` root, `0.4.0` in `web/`); synced.
+
+[0.5.1]: https://github.com/Reblayzer/polysearch/releases/tag/v0.5.1
+
 ## [0.5.0] - 2026-06-09
 
 Prefix-based autocomplete (`suggest`) across all three engines, plus a live as-you-type
