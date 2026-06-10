@@ -24,13 +24,14 @@ a `compare` mode whose entire job is to make the cross-engine differences visibl
 
 ## The interface
 
-Every backend implements the same six-method contract:
+Every backend implements the same seven-method contract:
 
 ```ts
 export interface SearchEngine {
   createIndex(name: string, schema: IndexSchema): Promise<void>;
   bulkIndex(index: string, docs: Document[]): Promise<BulkResult>;
   search(index: string, query: Query, opts?: SearchOptions): Promise<SearchResult>;
+  suggest(index: string, request: SuggestRequest): Promise<SuggestResult>;
   explain(index: string, query: Query, docId: string): Promise<ExplainResult>;
   deleteDocs(index: string, ids: string[]): Promise<void>;
   dropIndex(name: string): Promise<void>;
@@ -59,13 +60,34 @@ const query: Query = {
 Primitives: `match` (full-text), `term` (exact), `bool` (must / should / must_not / filter),
 `range`, plus `sort`, `from` / `size` paging and `highlight`.
 
+## Autocomplete (`suggest`)
+
+Prefix autocomplete with the same contract on every engine:
+
+```ts
+const result = await engine.suggest('products', { field: 'title', prefix: 'table la', size: 5 });
+// result.suggestions → [{ text: 'Table lamp BORRE', score: 1.19 }, ...]
+```
+
+The last token is matched as a prefix and earlier tokens as whole words, so `"table la"`
+completes to values like "Table lamp BORRE". Results are de-duplicated (several documents can
+share a title) and ranked by the engine's relevance score.
+
+It is implemented as prefix matching on an ordinary analyzed `text` field —
+`match_phrase_prefix` on Elasticsearch/OpenSearch, `field:(+token +prefix*)` on Solr — rather
+than the engines' native completion suggesters, which would each require a schema change (a
+dedicated suggest field type) and behave differently per engine. One documented divergence
+remains: ES/OS phrase-prefix requires the tokens in order and adjacent, while Solr's
+translation is an AND of terms, so earlier-token order does not matter there.
+
 ## Architecture
 
 ```
                  ┌────────────────────────────────┐
    CLI / compare │     SearchEngine interface     │   everything depends on THIS
                  │  createIndex bulkIndex search  │
-                 │  explain deleteDocs dropIndex  │
+                 │  suggest explain deleteDocs    │
+                 │  dropIndex                     │
                  └───────────────┬────────────────┘
                                  │ implemented by
             ┌────────────────────┼─────────────────────┐
@@ -104,6 +126,9 @@ node dist/cli/index.js index --engine solr --index products \
 # Search one engine, then compare the same query across all three
 node dist/cli/index.js search  --engine os --index products --q "table lamp"
 node dist/cli/index.js compare --index products --q "table lamp" --engines es,os,solr
+
+# Autocomplete a title prefix (the suggest API through the CLI)
+node dist/cli/index.js suggest --engine es --index products --prefix "table la"
 ```
 
 `compare` runs the same query across the engines and reports how they differ. It does not
@@ -179,13 +204,15 @@ npm run test:integration   # RUN_INTEGRATION=1 vitest run
 - [x] OpenSearch adapter (shared query DSL; diverges only in client transport)
 - [x] Solr adapter (its own `q`/`fq` query model and core/schema management)
 - [x] `compare` mode: top-K overlap (Jaccard), per-document rank/score, readable table
-- [x] CLI: `index`, `search`, `compare`, `explain`
+- [x] CLI: `index`, `search`, `suggest`, `compare`, `explain`
 - [x] docker-compose for all three engines + integration test suite
 - [x] "Where the abstraction leaks" section, documenting the honest limits (see
       [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md))
+- [x] Web UI (Next.js): search with highlights + inline explain, compare across engines
+- [x] Autocomplete: `suggest` across all three engines, with a live dropdown in the web UI
 
-Out of scope for v1: semantic/vector search, facets/aggregations, autocomplete and synonyms,
-cross-engine schema migration, and a web UI for the comparison output.
+Out of scope for v1: semantic/vector search, facets/aggregations, synonyms, and cross-engine
+schema migration.
 
 ## License
 
