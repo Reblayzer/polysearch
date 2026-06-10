@@ -1,8 +1,8 @@
 /**
  * polysearch CLI: a thin commander layer over the library.
  *
- * Four commands matching the kind of Node tooling a search team builds: index,
- * search, compare, explain. `--q` runs a simple match on `--field` (default
+ * Five commands matching the kind of Node tooling a search team builds: index,
+ * search, suggest, compare, explain. `--q` runs a simple match on `--field` (default
  * title); the full Query DSL is the library's job, the CLI exposes the common
  * case. Each engine has a sensible default node URL, overridable with a flag.
  */
@@ -38,6 +38,14 @@ interface SearchOptions {
   engine: string;
   index: string;
   q: string;
+  field: string;
+  size: string;
+  node?: string;
+}
+interface SuggestOptions {
+  engine: string;
+  index: string;
+  prefix: string;
   field: string;
   size: string;
   node?: string;
@@ -118,6 +126,28 @@ program
     console.log(`${result.total} hit(s) in ${result.tookMs}ms`);
     result.hits.forEach((hit, i) => {
       console.log(`  #${i + 1} ${hit.id}  score=${hit.score.toFixed(2)}  ${summarize(hit.source)}`);
+    });
+  });
+
+program
+  .command('suggest')
+  .description('Autocomplete a field by prefix and return ranked suggestions')
+  .requiredOption('--engine <engine>', 'es | os | solr')
+  .requiredOption('--index <name>', 'index or core name')
+  .requiredOption('--prefix <text>', 'prefix text to complete')
+  .option('--field <field>', 'field to complete against', 'title')
+  .option('--size <n>', 'maximum number of suggestions', '10')
+  .option('--node <url>', 'override the engine node URL')
+  .action(async (options: SuggestOptions) => {
+    const engine = makeEngine(options.engine, options.node);
+    const result = await engine.suggest(options.index, {
+      field: options.field,
+      prefix: options.prefix,
+      size: Number(options.size),
+    });
+    console.log(`${result.suggestions.length} suggestion(s)`);
+    result.suggestions.forEach((suggestion, i) => {
+      console.log(`  #${i + 1} ${suggestion.text}  score=${suggestion.score.toFixed(2)}`);
     });
   });
 
