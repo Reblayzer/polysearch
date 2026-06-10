@@ -7,6 +7,7 @@
  * case. Each engine has a sensible default node URL, overridable with a flag.
  */
 import { readFileSync } from 'node:fs';
+import pkg from '../../package.json' with { type: 'json' };
 import { Command } from 'commander';
 import { compare, createEngine, formatComparison } from '../index';
 import type { EngineName, NamedEngine, Query, SearchEngine } from '../index';
@@ -78,7 +79,7 @@ const program = new Command();
 program
   .name('polysearch')
   .description('One interface across Elasticsearch, OpenSearch and Solr')
-  .version('0.1.0');
+  .version(pkg.version);
 
 program
   .command('index')
