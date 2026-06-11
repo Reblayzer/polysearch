@@ -26,7 +26,15 @@ import type {
   SuggestResult,
 } from '../../types';
 import type { Query } from '../../query/types';
-import { toSolrQuery, toSolrSuggest } from '../../query/solr';
+import {
+  toSolrQuery,
+  toSolrSuggest,
+  toSolrFacetParams,
+  toSolrPostFilter,
+  parseSolrFacets,
+  POST_FILTER_TAG,
+} from '../../query/solr';
+import type { SolrFacetCounts } from '../../query/solr';
 import { assertValidFieldName } from '../../query/field';
 import { dedupeSuggestions } from '../../suggest';
 import { EngineRequestError, TimeoutError } from '../../errors';
@@ -54,6 +62,7 @@ interface SolrSelectResponse {
   response: { numFound: number; docs: Record<string, unknown>[] };
   highlighting?: Record<string, Record<string, string[]>>;
   debug?: { explain?: Record<string, string> };
+  facet_counts?: SolrFacetCounts;
 }
 
 interface SolrRequestInit {
@@ -188,13 +197,21 @@ export class SolrAdapter implements SearchEngine {
         params.set('hl.simple.post', query.highlight.postTag);
       }
     }
+    if (query.facets) {
+      for (const [name, value] of toSolrFacetParams(query.facets)) params.append(name, value);
+    }
+    if (query.postFilter) {
+      params.append('fq', `{!tag=${POST_FILTER_TAG}}${toSolrPostFilter(query.postFilter)}`);
+    }
     if (opts?.timeoutMs !== undefined) params.set('timeAllowed', String(opts.timeoutMs));
 
     const data = await this.request<SolrSelectResponse>(
       `/${encodeURIComponent(index)}/select?${params.toString()}`,
       opts?.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : undefined,
     );
-    return mapSelectResponse(data);
+    const result = mapSelectResponse(data);
+    if (query.facets) result.facets = parseSolrFacets(data.facet_counts, query.facets);
+    return result;
   }
 
   async suggest(index: string, request: SuggestRequest): Promise<SuggestResult> {

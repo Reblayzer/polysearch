@@ -34,7 +34,12 @@ import type {
   SuggestResult,
 } from '../../types';
 import type { Query } from '../../query/types';
-import { buildSearchBody, buildSuggestBody, translateClause } from '../../query/opensearch';
+import {
+  buildSearchBody,
+  buildSuggestBody,
+  parseAggregations,
+  translateClause,
+} from '../../query/opensearch';
 import { dedupeSuggestions } from '../../suggest';
 
 /** Our neutral field types mapped to OpenSearch mapping properties. `as const`
@@ -150,7 +155,11 @@ export class OpenSearchAdapter implements SearchEngine {
       return hit;
     });
 
-    return { total, hits, tookMs: body.took ?? 0 };
+    const result: SearchResult = { total, hits, tookMs: body.took ?? 0 };
+    if (query.facets) {
+      result.facets = parseAggregations(body.aggregations, query.facets);
+    }
+    return result;
   }
 
   async suggest(index: string, request: SuggestRequest): Promise<SuggestResult> {

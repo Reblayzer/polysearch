@@ -24,7 +24,12 @@ import type {
   SuggestResult,
 } from '../../types';
 import type { Query } from '../../query/types';
-import { buildSearchBody, buildSuggestBody, translateClause } from '../../query/elasticsearch';
+import {
+  buildSearchBody,
+  buildSuggestBody,
+  parseAggregations,
+  translateClause,
+} from '../../query/elasticsearch';
 import { dedupeSuggestions } from '../../suggest';
 
 /** Our neutral field types mapped to Elasticsearch mapping properties. */
@@ -112,7 +117,11 @@ export class ElasticsearchAdapter implements SearchEngine {
       // the wait on both sides.
       opts?.timeoutMs !== undefined ? { requestTimeout: opts.timeoutMs } : undefined,
     );
-    return mapSearchResponse(response);
+    const result = mapSearchResponse(response);
+    if (query.facets) {
+      result.facets = parseAggregations(response.aggregations, query.facets);
+    }
+    return result;
   }
 
   async suggest(index: string, request: SuggestRequest): Promise<SuggestResult> {
