@@ -56,6 +56,8 @@ export type {
   EngineConfig,
   EngineName,
   ExplainResult,
+  FacetBucket,
+  FacetResult,
   FieldDefinition,
   FieldType,
   Hit,
@@ -69,11 +71,15 @@ export type {
 
 export type {
   BoolQuery,
+  FacetRange,
+  FacetRequest,
   Highlight,
   MatchQuery,
   Query,
   QueryClause,
+  RangeFacet,
   RangeQuery,
   SortField,
   TermQuery,
+  TermsFacet,
 } from './query/types';

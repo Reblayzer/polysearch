@@ -67,6 +67,21 @@ export interface SearchResult {
   hits: Hit[];
   /** Server-reported time the query took, in milliseconds. */
   tookMs: number;
+  /** Facet counts, present only when the query requested facets. */
+  facets?: FacetResult[];
+}
+
+/** One facet bucket: a term value or a range key, and its document count. */
+export interface FacetBucket {
+  key: string;
+  count: number;
+}
+
+/** The counts for one requested facet, buckets in engine-returned order. */
+export interface FacetResult {
+  field: string;
+  type: 'terms' | 'range';
+  buckets: FacetBucket[];
 }
 
 /**

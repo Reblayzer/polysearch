@@ -73,6 +73,31 @@ export interface Highlight {
   postTag?: string;
 }
 
+/** Top-N value counts for a keyword-like field. */
+export interface TermsFacet {
+  type: 'terms';
+  field: string;
+  /** Maximum number of buckets to return. Defaults to 10. */
+  size?: number;
+}
+
+/** One labelled numeric bucket: `from` is inclusive, `to` is exclusive. */
+export interface FacetRange {
+  key: string;
+  from?: number;
+  to?: number;
+}
+
+/** Counts per caller-defined numeric bucket. `ranges` must be non-empty. */
+export interface RangeFacet {
+  type: 'range';
+  field: string;
+  ranges: FacetRange[];
+}
+
+/** A request for one facet's counts, computed alongside the search hits. */
+export type FacetRequest = TermsFacet | RangeFacet;
+
 /**
  * A complete search request: what to match (`where`) plus how to page, sort and
  * highlight the results. This is the object a caller hands to `SearchEngine.search`.
@@ -85,4 +110,12 @@ export interface Query {
   /** Maximum number of results to return. */
   size?: number;
   highlight?: Highlight;
+  /** Facet counts to compute alongside the hits. At most one facet per field. */
+  facets?: FacetRequest[];
+  /**
+   * Narrows the hits but NOT the facet counts (post-filter semantics). This is
+   * what makes a multi-select facet UI work: applying a facet's filter must not
+   * zero out the counts of that facet's other options.
+   */
+  postFilter?: QueryClause;
 }
