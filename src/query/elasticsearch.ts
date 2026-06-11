@@ -161,7 +161,10 @@ export function parseAggregations(
   return requests.map((request) => {
     const agg = aggregations?.[request.field];
     const buckets = isAggBucketsResponse(agg)
-      ? agg.buckets.map((b) => ({ key: String(b.key), count: typeof b.doc_count === 'number' ? b.doc_count : 0 }))
+      ? agg.buckets.map((b) => ({
+          key: String(b.key),
+          count: typeof b.doc_count === 'number' ? b.doc_count : 0,
+        }))
       : [];
     return { field: request.field, type: request.type, buckets };
   });
