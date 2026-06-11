@@ -8,6 +8,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ElasticsearchAdapter } from '../../src/engines/elasticsearch';
 import type { Document, IndexSchema } from '../../src/types';
+import type { QueryClause } from '../../src/query/types';
 
 const RUN = process.env.RUN_INTEGRATION === '1';
 const NODE = process.env.ES_NODE ?? 'http://localhost:9200';
@@ -140,5 +141,59 @@ describe.skipIf(!RUN)('ElasticsearchAdapter (integration)', () => {
       size: 10,
     });
     expect(res.hits.map((h) => h.id)).not.toContain('2');
+  });
+
+  describe('facets', () => {
+    it('returns terms and range facet counts alongside hits', async () => {
+      const result = await engine.search(INDEX, {
+        where: { type: 'bool', filter: [{ type: 'range', field: 'price', gte: 0 }] },
+        facets: [
+          { type: 'terms', field: 'category' },
+          {
+            type: 'range',
+            field: 'price',
+            ranges: [
+              { key: 'under-50', to: 50 },
+              { key: '50-up', from: 50 },
+            ],
+          },
+        ],
+      });
+
+      const terms = result.facets?.find((f) => f.field === 'category');
+      const range = result.facets?.find((f) => f.field === 'price');
+      expect(terms?.buckets.length).toBeGreaterThan(0);
+      for (const bucket of terms?.buckets ?? []) expect(bucket.count).toBeGreaterThan(0);
+      // Every doc has a price, so the two buckets partition the corpus exactly.
+      const rangeTotal = (range?.buckets ?? []).reduce((sum, b) => sum + b.count, 0);
+      expect(rangeTotal).toBe(result.total);
+      // And the terms counts sum to the corpus too (every doc has one category).
+      const termsTotal = (terms?.buckets ?? []).reduce((sum, b) => sum + b.count, 0);
+      expect(termsTotal).toBe(result.total);
+    });
+
+    it('postFilter narrows the hits but not the facet counts', async () => {
+      const facets = [{ type: 'terms', field: 'category' } as const];
+      const where: QueryClause = {
+        type: 'bool',
+        filter: [{ type: 'range', field: 'price', gte: 0 }],
+      };
+
+      const unfiltered = await engine.search(INDEX, { where, facets: [...facets] });
+      const category = unfiltered.facets?.[0]?.buckets[0];
+      if (!category) throw new Error('Expected at least one category bucket');
+
+      const filtered = await engine.search(INDEX, {
+        where,
+        facets: [...facets],
+        postFilter: { type: 'term', field: 'category', value: category.key } as const,
+      });
+
+      // Hits narrowed to the selected category...
+      expect(filtered.total).toBe(category.count);
+      expect(filtered.total).toBeLessThan(unfiltered.total);
+      // ...but the counts are those of the unfiltered query.
+      expect(filtered.facets).toEqual(unfiltered.facets);
+    });
   });
 });
