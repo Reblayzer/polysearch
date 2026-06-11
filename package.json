@@ -1,6 +1,6 @@
 {
   "name": "polysearch",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "One SearchEngine interface across Elasticsearch, OpenSearch and Solr, with a unified Query DSL and a cross-engine relevance comparison mode.",
   "type": "module",
   "license": "MIT",

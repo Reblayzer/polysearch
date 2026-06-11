@@ -4,6 +4,36 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-06-11
+
+Facets — the retail-search feature: terms and range facet counts across all three
+engines, with post-filter semantics for multi-select filtering, and a filter sidebar
+in the web UI.
+
+### Added
+
+- **`Query.facets`** — `terms` facets (top-N value counts) and `range` facets
+  (caller-defined numeric buckets, from-inclusive / to-exclusive), translated
+  natively per engine: ES/OS aggregations; Solr classic facet params
+  (`facet.field`, one `facet.query` per range bucket).
+- **`Query.postFilter`** — narrows the hits without changing facet counts, so a
+  multi-select facet UI works. ES/OS `post_filter`; on Solr a tagged filter query
+  (`{!tag=pf}`) excluded from every facet (`{!ex=pf}`).
+- **`SearchResult.facets`** — neutral `FacetResult[]` counts, engines' bucket order
+  preserved.
+- **Web UI**: a multi-select filter sidebar in the Search view (OR within a facet,
+  AND across facets), counts updating with the query in the same round-trip.
+
+### Notes
+
+- Documented divergence: the post-filter mechanism differs per engine family
+  (native `post_filter` vs Solr tag/ex) but the observable semantics match; terms
+  facets should target `keyword` fields (analyzed `text` fields would facet per
+  token). Per-facet filter exclusion (sibling facets narrowing while staying
+  selectable) is the known next refinement.
+
+[0.6.0]: https://github.com/Reblayzer/polysearch/releases/tag/v0.6.0
+
 ## [0.5.1] - 2026-06-10
 
 The two intentional follow-ups from 0.5.0 — the CLI `suggest` command and the README

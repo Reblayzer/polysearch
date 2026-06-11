@@ -80,6 +80,43 @@ dedicated suggest field type) and behave differently per engine. One documented 
 remains: ES/OS phrase-prefix requires the tokens in order and adjacent, while Solr's
 translation is an AND of terms, so earlier-token order does not matter there.
 
+## Facets
+
+Terms and range facets with the same contract on every engine, riding on the search call
+(one round-trip — counts always reflect the current query):
+
+```ts
+const result = await engine.search('products', {
+  where: { type: 'match', field: 'title', value: 'lamp' },
+  facets: [
+    { type: 'terms', field: 'category' },
+    {
+      type: 'range',
+      field: 'price',
+      ranges: [
+        { key: 'under-50', to: 50 },
+        { key: '50-up', from: 50 },
+      ],
+    },
+  ],
+  postFilter: { type: 'term', field: 'category', value: 'lighting' },
+});
+// result.facets → [{ field: 'category', type: 'terms', buckets: [{ key: 'lighting', count: 4 }, ...] }, ...]
+```
+
+`postFilter` narrows the hits **without changing the facet counts** — post-filter
+semantics, which is what makes a multi-select filter sidebar work (selecting a
+category must not zero out the other categories). On Elasticsearch/OpenSearch this
+is the native `post_filter`; on Solr it is a tagged filter query (`{!tag=pf}`)
+that every facet excludes (`{!ex=pf}`) — same behaviour, two very different
+mechanisms. Range buckets are from-inclusive / to-exclusive on every engine
+(`[a TO b}` in Solr's bracket syntax, `from`/`to` in the ES range aggregation).
+
+Facet on `keyword` (non-analyzed) fields: terms facets count indexed values, so an
+analyzed `text` field would facet per token. The known refinement beyond this is
+per-facet filter exclusion (each facet excluding only its own selections, so sibling
+facets narrow while staying selectable); the post-filter design leaves room for it.
+
 ## Architecture
 
 ```
@@ -167,7 +204,7 @@ where you see it.
 
 A small Next.js app under [`web/`](./web) lets you test everything in the browser: run one query
 across all three engines and see the ranking differences, search a single engine with
-highlights, and explain a document's score. The browser talks only to server-side route handlers,
+highlights, filter with a multi-select facet sidebar, and explain a document's score. The browser talks only to server-side route handlers,
 which use this library to reach the engines.
 
 ```bash
@@ -210,9 +247,9 @@ npm run test:integration   # RUN_INTEGRATION=1 vitest run
       [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md))
 - [x] Web UI (Next.js): search with highlights + inline explain, compare across engines
 - [x] Autocomplete: `suggest` across all three engines, with a live dropdown in the web UI
+- [x] Facets: terms + range facets with post-filter semantics, and a filter sidebar in the web UI
 
-Out of scope for v1: semantic/vector search, facets/aggregations, synonyms, and cross-engine
-schema migration.
+Out of scope for v1: semantic/vector search, synonyms, and cross-engine schema migration.
 
 ## License
 
