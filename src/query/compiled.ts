@@ -33,6 +33,14 @@ export interface CompiledBool {
 /** A single sort instruction, e.g. `{ price: { order: 'asc' } }`. */
 export type CompiledSort = Record<string, { order: 'asc' | 'desc' }>;
 
+/**
+ * One aggregation, in the ES-family shape. Like everything in this file it is
+ * a precise subset assignable to BOTH clients' request types with no cast.
+ */
+export type CompiledAgg =
+  | { terms: { field: string; size: number } }
+  | { range: { field: string; ranges: { key: string; from?: number; to?: number }[] } };
+
 export interface CompiledHighlight {
   fields: Record<string, Record<string, never>>;
   pre_tags?: string[];
@@ -45,6 +53,8 @@ export interface CompiledSearchBody {
   size?: number;
   sort?: CompiledSort[];
   highlight?: CompiledHighlight;
+  aggs?: Record<string, CompiledAgg>;
+  post_filter?: CompiledQuery;
 }
 
 /**

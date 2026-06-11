@@ -11,4 +11,9 @@
  * If the two query languages diverge in future, an OpenSearch-specific
  * translator would replace this re-export.
  */
-export { buildSearchBody, buildSuggestBody, translateClause } from './elasticsearch';
+export {
+  buildSearchBody,
+  buildSuggestBody,
+  translateClause,
+  parseAggregations,
+} from './elasticsearch';
