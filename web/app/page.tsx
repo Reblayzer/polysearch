@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ComparisonResult, ExplainResult, Hit, SearchResult, Suggestion } from 'polysearch';
+import type { ComparisonResult, ExplainResult, FacetResult, Hit, SearchResult, Suggestion } from 'polysearch';
 
 type EngineKey = 'es' | 'os' | 'solr';
 
@@ -35,6 +35,9 @@ export default function Home() {
   const [compareData, setCompareData] = useState<CompareResponse | null>(null);
   const [searchData, setSearchData] = useState<SearchResult | null>(null);
   const [seedMsg, setSeedMsg] = useState<string | null>(null);
+
+  // Facet sidebar selections: bucket keys per facet field (search mode only).
+  const [selections, setSelections] = useState<Record<string, string[]>>({});
 
   // As-you-type autocomplete. Compare mode has several engines selected, so the
   // dropdown completes against the first of them; search mode uses its engine.
@@ -96,7 +99,7 @@ export default function Home() {
         const res = await fetch('/api/search', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ engine: searchEngine, q, field, size }),
+          body: JSON.stringify({ engine: searchEngine, q, field, size, selections }),
         });
         const data: unknown = await res.json();
         if (!res.ok) throw new Error((data as { error?: string }).error ?? 'search failed');
@@ -107,7 +110,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [mode, engines, searchEngine, q, field, size]);
+  }, [mode, engines, searchEngine, q, field, size, selections]);
 
   const seed = useCallback(async () => {
     setSeedMsg('Seeding…');
@@ -128,6 +131,25 @@ export default function Home() {
 
   const toggleEngine = (key: EngineKey) =>
     setEngines((prev) => (prev.includes(key) ? prev.filter((e) => e !== key) : [...prev, key]));
+
+  const toggleSelection = (facetField: string, key: string) =>
+    setSelections((prev) => {
+      const current = prev[facetField] ?? [];
+      const next = current.includes(key)
+        ? current.filter((k) => k !== key)
+        : [...current, key];
+      return { ...prev, [facetField]: next };
+    });
+
+  // Re-run the search when filters change, but only once results are on screen
+  // (searchData set). Deps are deliberately ONLY [selections]: run/mode/searchData
+  // would re-fire this on every search result, looping. The suppressed rule can't
+  // see that run() is an async kick-off, not a synchronous setState.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (mode === 'search' && searchData) void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selections]);
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-10">
@@ -238,7 +260,10 @@ export default function Home() {
             {(['compare', 'search'] as const).map((m) => (
               <button
                 key={m}
-                onClick={() => setMode(m)}
+                onClick={() => {
+                  if (m !== 'search') setSelections({});
+                  setMode(m);
+                }}
                 className={`rounded-md px-3 py-1 capitalize transition ${
                   mode === m ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/80'
                 }`}
@@ -290,7 +315,14 @@ export default function Home() {
       <div className="mt-6">
         {mode === 'compare' && compareData && <CompareView data={compareData} />}
         {mode === 'search' && searchData && (
-          <SearchView data={searchData} engine={searchEngine} q={q} field={field} />
+          <div className="grid gap-4 md:grid-cols-[230px_1fr]">
+            <FacetSidebar
+              facets={searchData.facets ?? []}
+              selections={selections}
+              onToggle={toggleSelection}
+            />
+            <SearchView data={searchData} engine={searchEngine} q={q} field={field} />
+          </div>
         )}
       </div>
     </main>
@@ -416,6 +448,52 @@ function SearchView({
         ))}
       </ul>
     </section>
+  );
+}
+
+function FacetSidebar({
+  facets,
+  selections,
+  onToggle,
+}: {
+  facets: FacetResult[];
+  selections: Record<string, string[]>;
+  onToggle: (field: string, key: string) => void;
+}) {
+  if (facets.length === 0) return null;
+  return (
+    <aside className="space-y-4 self-start">
+      {facets.map((facet) => (
+        <div key={facet.field} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <h2 className="mb-2 text-xs font-semibold tracking-wide text-white/40 uppercase">
+            {facet.field}
+          </h2>
+          <ul className="space-y-1.5">
+            {facet.buckets.map((bucket) => {
+              const checked = (selections[facet.field] ?? []).includes(bucket.key);
+              return (
+                <li key={bucket.key}>
+                  <label className="flex cursor-pointer items-center justify-between gap-2 text-sm text-white/70 hover:text-white">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => onToggle(facet.field, bucket.key)}
+                        className="accent-sky-500"
+                      />
+                      <span className="truncate">{bucket.key}</span>
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-white/30">
+                      {bucket.count}
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </aside>
   );
 }
 
