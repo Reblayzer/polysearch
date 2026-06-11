@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { toSolrQuery, toSolrSuggest } from '../../src/query/solr';
+import {
+  toSolrQuery,
+  toSolrSuggest,
+  toSolrFacetParams,
+  toSolrPostFilter,
+  parseSolrFacets,
+} from '../../src/query/solr';
 
 describe('Solr translator: single clauses', () => {
   it('translates a match clause into a field query', () => {
@@ -90,5 +96,110 @@ describe('Solr translator: suggest', () => {
 
   it('rejects an invalid field name', () => {
     expect(() => toSolrSuggest({ field: 'title:x OR price', prefix: 'la' })).toThrow();
+  });
+});
+
+describe('toSolrFacetParams', () => {
+  it('builds tagged facet.field params for terms facets', () => {
+    expect(toSolrFacetParams([{ type: 'terms', field: 'category', size: 5 }])).toEqual([
+      ['facet', 'true'],
+      ['facet.field', '{!ex=pf}category'],
+      ['f.category.facet.limit', '5'],
+      ['f.category.facet.mincount', '1'],
+    ]);
+  });
+
+  it('builds one tagged facet.query per range bucket', () => {
+    expect(
+      toSolrFacetParams([
+        {
+          type: 'range',
+          field: 'price',
+          ranges: [
+            { key: 'under-50', to: 50 },
+            { key: '150-up', from: 150 },
+          ],
+        },
+      ]),
+    ).toEqual([
+      ['facet', 'true'],
+      ['facet.query', '{!ex=pf}price:[* TO 50}'],
+      ['facet.query', '{!ex=pf}price:[150 TO *]'],
+    ]);
+  });
+});
+
+describe('toSolrPostFilter', () => {
+  it('renders a bool of shoulds as a single OR string', () => {
+    expect(
+      toSolrPostFilter({
+        type: 'bool',
+        should: [
+          { type: 'term', field: 'category', value: 'lighting' },
+          { type: 'term', field: 'category', value: 'tables' },
+        ],
+        minimumShouldMatch: 1,
+      }),
+    ).toBe('(category:"lighting") (category:"tables")');
+  });
+
+  it('keeps nested filter clauses inline instead of spilling them to fq', () => {
+    expect(
+      toSolrPostFilter({
+        type: 'bool',
+        filter: [
+          { type: 'term', field: 'category', value: 'lighting' },
+          { type: 'range', field: 'price', gte: 50, lt: 150 },
+        ],
+      }),
+    ).toBe('+(category:"lighting") +(price:[50 TO 150})');
+  });
+});
+
+describe('parseSolrFacets', () => {
+  it('parses facet_fields flat arrays and maps facet_queries back to range keys', () => {
+    const results = parseSolrFacets(
+      {
+        facet_fields: { category: ['lighting', 4, 'tables', 2] },
+        facet_queries: { '{!ex=pf}price:[* TO 50}': 3, '{!ex=pf}price:[150 TO *]': 1 },
+      },
+      [
+        { type: 'terms', field: 'category' },
+        {
+          type: 'range',
+          field: 'price',
+          ranges: [
+            { key: 'under-50', to: 50 },
+            { key: '150-up', from: 150 },
+          ],
+        },
+      ],
+    );
+    expect(results).toEqual([
+      {
+        field: 'category',
+        type: 'terms',
+        buckets: [
+          { key: 'lighting', count: 4 },
+          { key: 'tables', count: 2 },
+        ],
+      },
+      {
+        field: 'price',
+        type: 'range',
+        buckets: [
+          { key: 'under-50', count: 3 },
+          { key: '150-up', count: 1 },
+        ],
+      },
+    ]);
+  });
+
+  it('returns zero counts when facet_counts is missing', () => {
+    expect(
+      parseSolrFacets(undefined, [
+        { type: 'range', field: 'price', ranges: [{ key: 'under-50', to: 50 }] },
+      ]),
+    ).toEqual([{ field: 'price', type: 'range', buckets: [{ key: 'under-50', count: 0 }] }]);
   });
 });

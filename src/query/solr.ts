@@ -19,9 +19,10 @@
  * Known limitation (documented as a leak): `minimumShouldMatch` is not honoured
  * here, because Solr's equivalent (`mm`) belongs to the edismax parser.
  */
-import type { BoolQuery, QueryClause, RangeQuery } from './types';
-import type { SuggestRequest } from '../types';
+import type { BoolQuery, FacetRange, FacetRequest, QueryClause, RangeQuery } from './types';
+import type { FacetBucket, FacetResult, SuggestRequest } from '../types';
 import { assertValidFieldName } from './field';
+import { assertValidFacets, DEFAULT_TERMS_SIZE } from './facets';
 
 /** The Solr-shaped query: a main `q` string and zero or more `fq` filters. */
 export interface SolrQuery {
@@ -137,4 +138,112 @@ export function toSolrSuggest(request: SuggestRequest): string {
   const last = tokens.length - 1;
   const terms = tokens.map((token, i) => `+${escapeValue(token)}${i === last ? '*' : ''}`);
   return `${request.field}:(${terms.join(' ')})`;
+}
+
+/** Tag put on the post-filter fq so every facet can exclude it from counting. */
+export const POST_FILTER_TAG = 'pf';
+
+/** Solr facet parameters as (name, value) pairs; names repeat, so not a record. */
+export type SolrFacetParams = [string, string][];
+
+/** Render one facet range bucket: from-inclusive `[`, to-exclusive `}` (or `]` for an open end). */
+function renderFacetRange(range: FacetRange): string {
+  const lower = range.from !== undefined ? String(range.from) : '*';
+  const upper = range.to !== undefined ? String(range.to) : '*';
+  const upperBracket = range.to !== undefined ? '}' : ']';
+  return `[${lower} TO ${upper}${upperBracket}`;
+}
+
+/**
+ * Translate facet requests into Solr's classic facet parameters.
+ *
+ * Terms facets use `facet.field`; arbitrary range buckets have no classic
+ * equivalent of the ES range agg, so each bucket becomes its own `facet.query`.
+ * Every facet carries `{!ex=pf}` so the (tagged) post-filter fq is excluded
+ * from counting — Solr's tag/ex mechanism, the equivalent of ES `post_filter`
+ * semantics. `facet.mincount=1` matches the ES terms agg, which only returns
+ * buckets with matches.
+ */
+export function toSolrFacetParams(facets: FacetRequest[]): SolrFacetParams {
+  assertValidFacets(facets);
+  const params: SolrFacetParams = [['facet', 'true']];
+  for (const facet of facets) {
+    if (facet.type === 'terms') {
+      params.push(['facet.field', `{!ex=${POST_FILTER_TAG}}${facet.field}`]);
+      params.push([`f.${facet.field}.facet.limit`, String(facet.size ?? DEFAULT_TERMS_SIZE)]);
+      params.push([`f.${facet.field}.facet.mincount`, '1']);
+    } else {
+      for (const range of facet.ranges) {
+        params.push([
+          'facet.query',
+          `{!ex=${POST_FILTER_TAG}}${facet.field}:${renderFacetRange(range)}`,
+        ]);
+      }
+    }
+  }
+  return params;
+}
+
+/**
+ * Render a post-filter clause as ONE string (the adapter prefixes the
+ * `{!tag=pf}`). Unlike the main translator, nested bool.filter clauses render
+ * inline as required clauses: a post-filter must stay a single tagged fq —
+ * spilling parts into separate untagged fq params would silently re-include
+ * them in facet counting.
+ */
+export function toSolrPostFilter(clause: QueryClause): string {
+  switch (clause.type) {
+    case 'match':
+    case 'term':
+    case 'range':
+      return renderClause(clause, []);
+    case 'bool': {
+      const parts: string[] = [];
+      for (const c of clause.must ?? []) parts.push(`+(${toSolrPostFilter(c)})`);
+      for (const c of clause.filter ?? []) parts.push(`+(${toSolrPostFilter(c)})`);
+      for (const c of clause.should ?? []) parts.push(`(${toSolrPostFilter(c)})`);
+      for (const c of clause.mustNot ?? []) parts.push(`-(${toSolrPostFilter(c)})`);
+      return parts.join(' ');
+    }
+    default: {
+      const exhaustive: never = clause;
+      return exhaustive;
+    }
+  }
+}
+
+/** The slice of a Solr select response that carries facet counts. */
+export interface SolrFacetCounts {
+  facet_fields?: Record<string, (string | number)[]>;
+  facet_queries?: Record<string, number>;
+}
+
+/**
+ * Turn Solr's facet_counts back into neutral facet results, in request order.
+ * facet_fields is Solr's flat [value, count, value, count, ...] array;
+ * facet_queries is keyed by the exact query string we sent, so range buckets
+ * are mapped back through the same rendering used to build the request.
+ */
+export function parseSolrFacets(
+  counts: SolrFacetCounts | undefined,
+  requests: FacetRequest[],
+): FacetResult[] {
+  return requests.map((request) => {
+    if (request.type === 'terms') {
+      const flat = counts?.facet_fields?.[request.field] ?? [];
+      const buckets: FacetBucket[] = [];
+      for (let i = 0; i + 1 < flat.length; i += 2) {
+        buckets.push({ key: String(flat[i]), count: Number(flat[i + 1]) });
+      }
+      return { field: request.field, type: 'terms' as const, buckets };
+    }
+    const buckets = request.ranges.map((range) => ({
+      key: range.key,
+      count:
+        counts?.facet_queries?.[
+          `{!ex=${POST_FILTER_TAG}}${request.field}:${renderFacetRange(range)}`
+        ] ?? 0,
+    }));
+    return { field: request.field, type: 'range' as const, buckets };
+  });
 }
