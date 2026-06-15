@@ -32,7 +32,7 @@ in the web UI.
   token). Per-facet filter exclusion (sibling facets narrowing while staying
   selectable) is the known next refinement.
 
-[0.6.0]: https://github.com/Reblayzer/polysearch/releases/tag/v0.6.0
+[0.6.0]: https://github.com/Reblayzer/PolySearch/releases/tag/v0.6.0
 
 ## [0.5.1] - 2026-06-10
 
@@ -56,7 +56,7 @@ documentation for the suggest API — plus a stale-version fix.
   `package.json` at build time (inlined by the bundler), so it cannot drift again.
 - The lockfiles recorded stale package versions (`0.2.0` root, `0.4.0` in `web/`); synced.
 
-[0.5.1]: https://github.com/Reblayzer/polysearch/releases/tag/v0.5.1
+[0.5.1]: https://github.com/Reblayzer/PolySearch/releases/tag/v0.5.1
 
 ## [0.5.0] - 2026-06-09
 
@@ -89,7 +89,7 @@ dropdown in the web UI.
 - The CLI does not yet expose a `suggest` command, and the `README` does not yet document the
   `suggest` API; both are intentional follow-ups.
 
-[0.5.0]: https://github.com/Reblayzer/polysearch/releases/tag/v0.5.0
+[0.5.0]: https://github.com/Reblayzer/PolySearch/releases/tag/v0.5.0
 
 ## [0.4.0] - 2026-06-09
 
@@ -108,7 +108,7 @@ Remove the OpenSearch request-body casts by emitting a neutral compiled-query ty
   without a cast, since OpenSearch's generated `RangeQuery` is a strict number-or-date union with
   no untyped variant.
 
-[0.4.0]: https://github.com/Reblayzer/polysearch/releases/tag/v0.4.0
+[0.4.0]: https://github.com/Reblayzer/PolySearch/releases/tag/v0.4.0
 
 ## [0.3.0] - 2026-06-09
 
@@ -128,7 +128,7 @@ Configurable timeouts, a coverage threshold, and integration tests in CI.
   against service containers. Solr's stays local (it needs the `_default` configset bind-mounted),
   as does the cross-engine compare test (it needs all three engines).
 
-[0.3.0]: https://github.com/Reblayzer/polysearch/releases/tag/v0.3.0
+[0.3.0]: https://github.com/Reblayzer/PolySearch/releases/tag/v0.3.0
 
 ## [0.2.0] - 2026-06-09
 
@@ -147,7 +147,7 @@ Best-practices pass: typed errors, input validation, and accurate per-engine aut
 - **CLI input validation** (`src/cli/parse.ts`): schema and document files are validated at the
   boundary with clear errors and line numbers, instead of unchecked `as` type assertions.
 
-[0.2.0]: https://github.com/Reblayzer/polysearch/releases/tag/v0.2.0
+[0.2.0]: https://github.com/Reblayzer/PolySearch/releases/tag/v0.2.0
 
 ## [0.1.1] - 2026-06-09
 
@@ -171,7 +171,7 @@ Security and robustness hardening, from an adversarial review of the codebase.
   comparison. The engines that responded are compared, and the rest are reported in a new
   `failures` field on `ComparisonResult` (and printed by `formatComparison`).
 
-[0.1.1]: https://github.com/Reblayzer/polysearch/releases/tag/v0.1.1
+[0.1.1]: https://github.com/Reblayzer/PolySearch/releases/tag/v0.1.1
 
 ## [0.1.0] - 2026-06-09
 
@@ -199,4 +199,4 @@ First release. One interface across three search engines, plus a comparison mode
 Semantic/vector search, facets/aggregations beyond top-K, autocomplete and synonyms,
 cross-engine schema migration, and a web UI for the comparison output.
 
-[0.1.0]: https://github.com/Reblayzer/polysearch/releases/tag/v0.1.0
+[0.1.0]: https://github.com/Reblayzer/PolySearch/releases/tag/v0.1.0

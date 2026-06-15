@@ -1,6 +1,6 @@
 # PolySearch
 
-[![CI](https://github.com/Reblayzer/polysearch/actions/workflows/ci.yml/badge.svg)](https://github.com/Reblayzer/polysearch/actions/workflows/ci.yml)
+[![CI](https://github.com/Reblayzer/PolySearch/actions/workflows/ci.yml/badge.svg)](https://github.com/Reblayzer/PolySearch/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
 One `SearchEngine` interface across **Elasticsearch**, **OpenSearch** and **Solr**, a small
