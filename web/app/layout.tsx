@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'polysearch',
+  title: 'PolySearch',
   description: 'Compare the same query across Elasticsearch, OpenSearch and Solr',
 };
 

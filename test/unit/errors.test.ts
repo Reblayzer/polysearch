@@ -2,26 +2,26 @@ import { describe, it, expect } from 'vitest';
 import {
   EngineRequestError,
   FieldValidationError,
-  PolysearchError,
+  PolySearchError,
   TimeoutError,
 } from '../../src/errors';
 
 describe('error classes', () => {
-  it('all subclasses extend PolysearchError and Error', () => {
+  it('all subclasses extend PolySearchError and Error', () => {
     const errors = [
-      new PolysearchError('x'),
+      new PolySearchError('x'),
       new FieldValidationError('x'),
       new EngineRequestError('x', 404),
       new TimeoutError('x'),
     ];
     for (const err of errors) {
-      expect(err).toBeInstanceOf(PolysearchError);
+      expect(err).toBeInstanceOf(PolySearchError);
       expect(err).toBeInstanceOf(Error);
     }
   });
 
   it('sets a distinct name per class', () => {
-    expect(new PolysearchError('x').name).toBe('PolysearchError');
+    expect(new PolySearchError('x').name).toBe('PolySearchError');
     expect(new FieldValidationError('x').name).toBe('FieldValidationError');
     expect(new EngineRequestError('x').name).toBe('EngineRequestError');
     expect(new TimeoutError('x').name).toBe('TimeoutError');

@@ -4,7 +4,7 @@
  */
 import type { FacetRequest } from './types';
 import { assertValidFieldName } from './field';
-import { PolysearchError } from '../errors';
+import { PolySearchError } from '../errors';
 
 /** The default number of terms buckets when a request omits `size`. */
 export const DEFAULT_TERMS_SIZE = 10;
@@ -14,20 +14,20 @@ export function assertValidFacets(facets: FacetRequest[]): void {
   for (const facet of facets) {
     assertValidFieldName(facet.field);
     if (seen.has(facet.field)) {
-      throw new PolysearchError(`duplicate facet on field "${facet.field}"`);
+      throw new PolySearchError(`duplicate facet on field "${facet.field}"`);
     }
     seen.add(facet.field);
     if (facet.type === 'terms') {
       if (facet.size !== undefined && facet.size <= 0) {
-        throw new PolysearchError(`terms facet on "${facet.field}": size must be positive`);
+        throw new PolySearchError(`terms facet on "${facet.field}": size must be positive`);
       }
     } else {
       if (facet.ranges.length === 0) {
-        throw new PolysearchError(`range facet on "${facet.field}" needs at least one range`);
+        throw new PolySearchError(`range facet on "${facet.field}" needs at least one range`);
       }
       for (const range of facet.ranges) {
         if (range.from === undefined && range.to === undefined) {
-          throw new PolysearchError(
+          throw new PolySearchError(
             `range facet on "${facet.field}": range "${range.key}" has neither from nor to`,
           );
         }

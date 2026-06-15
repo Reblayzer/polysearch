@@ -141,7 +141,7 @@ Best-practices pass: typed errors, input validation, and accurate per-engine aut
   is ignored by OpenSearch and Solr, which have no native API-key concept (OpenSearch also
   supports AWS SigV4, not wired here). This corrects a docs claim that previously overstated
   auth support.
-- **Typed errors** (`src/errors.ts`): every error polysearch throws now extends `PolysearchError`
+- **Typed errors** (`src/errors.ts`): every error PolySearch throws now extends `PolySearchError`
   (`FieldValidationError`, `EngineRequestError` with a `statusCode`, `TimeoutError`), so callers
   can discriminate by type instead of string-matching messages.
 - **CLI input validation** (`src/cli/parse.ts`): schema and document files are validated at the

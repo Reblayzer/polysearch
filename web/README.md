@@ -1,6 +1,6 @@
-# polysearch web UI
+# PolySearch web UI
 
-A small Next.js app for testing polysearch in the browser: run one query across
+A small Next.js app for testing PolySearch in the browser: run one query across
 Elasticsearch, OpenSearch and Solr and see how their rankings differ, search a
 single engine, and inspect why a document scored the way it did.
 
@@ -10,7 +10,7 @@ The browser never talks to the engines directly (no CORS, and you would expose
 credentials). Instead:
 
 ```
-browser  ──fetch──>  Next.js route handlers (/api/*)  ──>  polysearch library  ──>  engines
+browser  ──fetch──>  Next.js route handlers (/api/*)  ──>  PolySearch library  ──>  engines
 ```
 
 The route handlers (`app/api/*`) run server-side and use the `polysearch`
@@ -23,7 +23,7 @@ From the repository root, start the engines and build the library:
 
 ```bash
 docker compose --profile all up -d   # Elasticsearch, OpenSearch, Solr
-npm install && npm run build         # build the polysearch library (the UI imports its dist)
+npm install && npm run build         # build the PolySearch library (the UI imports its dist)
 ```
 
 Then start the web app:

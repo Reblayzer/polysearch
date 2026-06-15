@@ -1,13 +1,13 @@
 # Architecture
 
-This document explains how polysearch is put together and why. It is the design reference for
+This document explains how PolySearch is put together and why. It is the design reference for
 the repository. For the user-facing summary, see the [README](../README.md).
 
 ## The one idea
 
 Three different search backends, one interface. Elasticsearch, OpenSearch and Solr each have
 their own client library and their own query language, but a caller should not have to care.
-polysearch defines a single `SearchEngine` interface; each backend ships an **adapter** that
+PolySearch defines a single `SearchEngine` interface; each backend ships an **adapter** that
 implements it. The CLI and the comparison logic are written against the interface alone and
 have no knowledge of which engine is behind it.
 
@@ -101,7 +101,7 @@ narrow keeps the translators honest and the leak surface small.
 
 ## Elasticsearch and OpenSearch share a translator
 
-OpenSearch is a fork of Elasticsearch 7.10, so for the primitives polysearch supports the query
+OpenSearch is a fork of Elasticsearch 7.10, so for the primitives PolySearch supports the query
 DSL is identical. The OpenSearch translator (`src/query/opensearch.ts`) therefore re-exports the
 Elasticsearch translator rather than duplicating it; a unit test pins that the two produce the
 same body. The real differences are in the client transport, and they live entirely in the
@@ -182,7 +182,7 @@ production are explicit:
 - **Untrusted input is validated at the boundary.** The CLI validates schema and document files
   before use (clear errors with line numbers) rather than asserting their shape. Resource limits
   on query size / deep pagination are still out of scope for v1.
-- **Typed errors.** Everything polysearch throws extends `PolysearchError`
+- **Typed errors.** Everything PolySearch throws extends `PolySearchError`
   (`FieldValidationError`, `EngineRequestError`, `TimeoutError`), so callers can discriminate by
   type instead of parsing messages.
 

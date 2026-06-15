@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseDocuments, parseSchema } from '../../src/cli/parse';
-import { FieldValidationError, PolysearchError } from '../../src/errors';
+import { FieldValidationError, PolySearchError } from '../../src/errors';
 
 describe('parseSchema', () => {
   it('parses a valid schema', () => {
@@ -10,7 +10,7 @@ describe('parseSchema', () => {
   });
 
   it('rejects invalid JSON', () => {
-    expect(() => parseSchema('{not json')).toThrow(PolysearchError);
+    expect(() => parseSchema('{not json')).toThrow(PolySearchError);
   });
 
   it('rejects a missing fields object', () => {

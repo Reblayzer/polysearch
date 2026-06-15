@@ -156,7 +156,7 @@ export default function Home() {
       <header className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            poly<span className="text-sky-400">search</span>
+            Poly<span className="text-sky-400">Search</span>
           </h1>
           <p className="mt-1 text-sm text-white/50">
             Run one query across Elasticsearch, OpenSearch and Solr, and see how they differ.

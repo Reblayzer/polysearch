@@ -1,4 +1,4 @@
-# polysearch
+# PolySearch
 
 [![CI](https://github.com/Reblayzer/polysearch/actions/workflows/ci.yml/badge.svg)](https://github.com/Reblayzer/polysearch/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
@@ -19,7 +19,7 @@ the same query over the same data does not produce identical rankings across the
 defaults, tokenisation and tie-breaking differ. Existing universal clients tend to target a
 single backend, or hide so much of each engine that those differences disappear.
 
-polysearch keeps the abstraction thin on purpose. It gives you one way to index and query, and
+PolySearch keeps the abstraction thin on purpose. It gives you one way to index and query, and
 a `compare` mode whose entire job is to make the cross-engine differences visible.
 
 ## The interface

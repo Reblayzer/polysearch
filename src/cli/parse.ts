@@ -4,11 +4,11 @@
  * The CLI reads JSON from disk, which is untrusted: a type assertion (`as
  * IndexSchema`) would lie to the compiler and let a malformed file through to
  * fail later with a cryptic engine error. These parsers validate the shape and
- * throw a clear `PolysearchError` (with a line number for documents) instead.
+ * throw a clear `PolySearchError` (with a line number for documents) instead.
  */
 import type { Document, FieldDefinition, FieldType, IndexSchema } from '../types';
 import { assertValidFieldName } from '../query/field';
-import { PolysearchError } from '../errors';
+import { PolySearchError } from '../errors';
 
 const FIELD_TYPES = new Set<string>(['text', 'keyword', 'integer', 'float', 'boolean', 'date']);
 
@@ -22,17 +22,17 @@ export function parseSchema(raw: string): IndexSchema {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new PolysearchError('schema file is not valid JSON');
+    throw new PolySearchError('schema file is not valid JSON');
   }
   if (!isRecord(parsed) || !isRecord(parsed.fields)) {
-    throw new PolysearchError('schema file must be an object with a "fields" object');
+    throw new PolySearchError('schema file must be an object with a "fields" object');
   }
 
   const fields: Record<string, FieldDefinition> = {};
   for (const [name, def] of Object.entries(parsed.fields)) {
     assertValidFieldName(name);
     if (!isRecord(def) || typeof def.type !== 'string' || !FIELD_TYPES.has(def.type)) {
-      throw new PolysearchError(
+      throw new PolySearchError(
         `schema field "${name}" must have a "type" of one of: ${[...FIELD_TYPES].join(', ')}`,
       );
     }
@@ -53,10 +53,10 @@ export function parseDocuments(raw: string): Document[] {
     try {
       parsed = JSON.parse(line);
     } catch {
-      throw new PolysearchError(`line ${i + 1}: not valid JSON`);
+      throw new PolySearchError(`line ${i + 1}: not valid JSON`);
     }
     if (!isRecord(parsed) || (typeof parsed.id !== 'string' && typeof parsed.id !== 'number')) {
-      throw new PolysearchError(
+      throw new PolySearchError(
         `line ${i + 1}: document must be a JSON object with a string or number "id"`,
       );
     }
